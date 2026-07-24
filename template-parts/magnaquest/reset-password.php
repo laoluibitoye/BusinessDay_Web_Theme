@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		    //MQ Code Start
 		    // Redirect to login page after 2 seconds
                     setTimeout(() => {
-                    	window.location.href = 'https://businessday.ng/login/';
+                    	window.location.href = 'https://stg18326.businessday.ng/login/';
         	    }, 2000);
 		    //MQ Code End
                 } else {

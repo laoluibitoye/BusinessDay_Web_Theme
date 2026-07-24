@@ -1208,8 +1208,8 @@ function mq_custom_logout_sync() {
 
     /* Configuration */
 
-    $RedirectUrl       = 'https://businessday.ng/';
-    $selfcareOrigin    = 'https://businessday-selfcare.magnaquest.com';
+    $RedirectUrl       = 'https://stg18326.businessday.ng/';
+    $selfcareOrigin    = 'https://businessdaytest-selfcare.magnaquest.com';
     $HiddenIframeUrl   = $selfcareOrigin . '/#/account/mySubscription';
 
     //WordPress logout URL
@@ -1420,7 +1420,7 @@ add_filter( 'wp_mail', function ( $args ) {
 	}
 
 	$invite_key = $m[1];
-	$new_url    = 'https://businessday.ng/sign-up/?invite_key=' . rawurlencode( $invite_key );
+	$new_url    = 'https://stg18326.businessday.ng/sign-up/?invite_key=' . rawurlencode( $invite_key );
 
 	$args['message'] = preg_replace(
 		'#https?://\S+?lp_group_invite_key=[^\s<>"]+#',

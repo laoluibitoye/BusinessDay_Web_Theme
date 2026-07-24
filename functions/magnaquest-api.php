@@ -8,29 +8,29 @@
 
 // Magnaquest Staging API Endpoints
 if (!defined('MQ_API_LOGIN_URL')) {
-    define('MQ_API_LOGIN_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/Login');
+    define('MQ_API_LOGIN_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/Login');
 }
 if (!defined('MQ_API_REGISTER_URL')) {
-    define('MQ_API_REGISTER_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/CreateCustomer');
+    define('MQ_API_REGISTER_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/CreateCustomer');
 }
 if (!defined('MQ_API_CHANGE_PASSWORD_URL')) {
-    define('MQ_API_CHANGE_PASSWORD_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/ChangePassword');
+    define('MQ_API_CHANGE_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ChangePassword');
 }
 if (!defined('MQ_API_FORGOT_PASSWORD_URL')) {
-    define('MQ_API_FORGOT_PASSWORD_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/ForgotPassword');
+    define('MQ_API_FORGOT_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ForgotPassword');
 }
 if (!defined('MQ_API_RESET_PASSWORD_URL')) {
-    define('MQ_API_RESET_PASSWORD_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/ResetPassword');
+    define('MQ_API_RESET_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ResetPassword');
 }
 if (!defined('MQ_API_FIND_APPUSER_URL')) {
-    define('MQ_API_FIND_APPUSER_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/FindAppuserByLogintypeAndLoginName');
+    define('MQ_API_FIND_APPUSER_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/FindAppuserByLogintypeAndLoginName');
 }
 if (!defined('MQ_API_SELFCARE_RESET_PASSWORD_URL')) {
-    define('MQ_API_SELFCARE_RESET_PASSWORD_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/SelfcareResetPassword');
+    define('MQ_API_SELFCARE_RESET_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/SelfcareResetPassword');
 }
 
 if (!defined('MQ_API_SEND_PASSWORD_RESET_LINK_URL')) {
-    define('MQ_API_SEND_PASSWORD_RESET_LINK_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/SendPasswordResetLink');
+    define('MQ_API_SEND_PASSWORD_RESET_LINK_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/SendPasswordResetLink');
 }
 
 
