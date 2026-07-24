@@ -1473,3 +1473,8 @@ add_filter( 'wp_sitemaps_enabled', '__return_false' );
 
 // 2. Cache Yoast SEO sitemaps to prevent database hits on every request
 add_filter( 'wpseo_enable_xml_sitemap_transient_caching', '__return_true' );
+
+// 3. Limit sitemap entries to reduce database query work per page
+add_filter( 'wpseo_sitemap_entries_per_page', function() {
+    return 100;
+} );
