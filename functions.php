@@ -1464,3 +1464,12 @@ function wc_submit_prediction_handler() {
 
     wp_send_json_success('Prediction saved successfully!');
 }
+
+/**
+ * Performance optimization for database sitemap queries
+ */
+// 1. Disable native WordPress core sitemaps to prevent double-crawling
+add_filter( 'wp_sitemaps_enabled', '__return_false' );
+
+// 2. Cache Yoast SEO sitemaps to prevent database hits on every request
+add_filter( 'wpseo_enable_xml_sitemap_transient_caching', '__return_true' );
