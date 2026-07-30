@@ -115,7 +115,10 @@ foreach ($categories_to_show as $slug => $label) {
         </div>
     <?php endif; ?>
    
-    <?php if ( is_user_logged_in() ) : ?>
+    <?php 
+    wp_get_current_user();
+    if ( is_user_logged_in() ) : 
+    ?>
         <div class="news">
             <div class="row">
                 <?php if (!empty($posts)) : ?>
@@ -147,7 +150,7 @@ foreach ($categories_to_show as $slug => $label) {
             <h3 style="margin-top: 0; font-size: 1.8em; font-weight: 700; color: #111;">Login Required</h3>
             <p style="font-size: 16px; color: #555;">Please log in to browse the E-edition archives.</p>
             <div style="margin-top: 20px;">
-                <a href="/login/" class="btn" style="background: #000; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 20px; display: inline-block; margin: 5px; font-weight: 600;">Log In</a>
+                <a href="/login/?redirect_to=<?php echo urlencode( $_SERVER['REQUEST_URI'] ); ?>" class="btn" style="background: #000; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 20px; display: inline-block; margin: 5px; font-weight: 600;">Log In</a>
                 <a href="/subscribe/" class="btn" style="background: #d63031; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 20px; display: inline-block; margin: 5px; font-weight: 600;">Subscribe Now</a>
             </div>
         </div>

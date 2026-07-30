@@ -1499,4 +1499,18 @@ function wc_submit_prediction_handler() {
     wp_send_json_success('Prediction saved successfully!');
 }
 
+// Bypass page caching on E-edition category archive pages to ensure logged-in state renders dynamically
+add_action('template_redirect', 'bypass_cache_for_eedition_archives');
+function bypass_cache_for_eedition_archives() {
+    if ( is_category( array('e-edition', 'e-paper', 'reports', 'weekender', 'womens-hub') ) ) {
+        if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+            define( 'DONOTCACHEPAGE', true );
+        }
+        // Send headers to bypass browser, CDN, and reverse proxy caches
+        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+        header("Pragma: no-cache");
+        header("Expires: Wed, 11 Jan 1984 05:00:00 GMT");
+    }
+}
+
 
