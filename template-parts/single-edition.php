@@ -19,43 +19,13 @@
 						<!-- <a href="https://businessday.ng/wp-content/uploads/2023/08/BD_20230813.pdf"> View Fullscreen </a> -->
                         <div class="post-content">
                         <?php
-                            // HTML comment for debugging user metadata to diagnose login/paywall issues
-                            if ( is_user_logged_in() ) {
-                                $uid = get_current_user_id();
-                                echo "<!-- DEBUG: User ID = " . $uid . "\n";
-                                foreach ( get_user_meta( $uid ) as $k => $v ) {
-                                    if ( strpos( $k, 'paywall' ) !== false || strpos( $k, 'issuem' ) !== false || strpos( $k, 'subscription' ) !== false ) {
-                                        echo "  {$k} => " . print_r( $v, true ) . "\n";
-                                    }
-                                }
-                                echo "-->\n";
-                            }
-
                             $has_sub = false;
                             if ( is_user_logged_in() ) {
                                 $user_id = get_current_user_id();
-                                
-                                // 1. Try Live mode metadata
                                 $status = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_payment_status', true));
                                 $level_id = get_user_meta($user_id, '_issuem_leaky_paywall_live_level_id', true);
                                 $description = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_description', true));
                                 $expires = get_user_meta($user_id, '_issuem_leaky_paywall_live_expires', true);
-                                
-                                // 2. Try Test mode metadata fallback
-                                if ( empty($status) ) {
-                                    $status = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_test_payment_status', true));
-                                    $level_id = get_user_meta($user_id, '_issuem_leaky_paywall_test_level_id', true);
-                                    $description = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_test_description', true));
-                                    $expires = get_user_meta($user_id, '_issuem_leaky_paywall_test_expires', true);
-                                }
-                                
-                                // 3. Try prefix-less metadata fallback
-                                if ( empty($status) ) {
-                                    $status = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_payment_status', true));
-                                    $level_id = get_user_meta($user_id, '_issuem_leaky_paywall_level_id', true);
-                                    $description = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_description', true));
-                                    $expires = get_user_meta($user_id, '_issuem_leaky_paywall_expires', true);
-                                }
                     
                                 if ( $status === 'active' && $level_id != '4' && strpos($description, 'free') === false ) {
                                     if ( empty($expires) || strtotime($expires) > time() ) {
