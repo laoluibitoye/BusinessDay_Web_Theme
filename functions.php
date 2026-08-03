@@ -1095,6 +1095,11 @@ add_shortcode('bd_reset_password', 'bd_reset_password_shortcode');
  */
 
 function bd_custom_menu_visibility($items, $args) {
+    // Group members (see handle_group_signup() in functions/magnaquest-api.php) have no
+    // Magnaquest subscription/profile of their own -- hide Subscribe/My Account/Profile
+    // menu items for them the same way these are hidden for logged-out or logged-in users below.
+    $is_group_member = is_user_logged_in() && get_user_meta(get_current_user_id(), '_bd_is_group_member', true);
+
     foreach ($items as $key => $item) {
         /* Logged IN user */
         if (is_user_logged_in()) {
@@ -1105,6 +1110,12 @@ function bd_custom_menu_visibility($items, $args) {
             // Hide Sign Up
             if ($item->title == 'SignUp') {
                 unset($items[$key]);
+            }
+            if ($is_group_member) {
+                $title = trim(strip_tags($item->title));
+                if (strpos($title, 'Subscribe to our Premium') !== false || $title === 'My Account' || $title === 'Profile') {
+                    unset($items[$key]);
+                }
             }
         }
         /* Logged OUT user */
@@ -1425,48 +1436,68 @@ add_action( 'rest_api_init', function () {
 
 } );
 
-function bd_get_group_invite_details( WP_REST_Request $request ) {
+/**
+ * Shared Leaky Paywall REST API Basic Auth header, factored out so the credential
+ * string exists in one place instead of being duplicated at every call site
+ * (used by bd_get_group_invite_details() below and the group-member finalize
+ * call in functions/magnaquest-api.php's handle_group_signup()).
+ */
+function bd_get_lpw_basic_auth_header() {
+	$lpw_username     = 'pruthvi.chimmula@magnaquest.com';
+	$lpw_app_password = 'nVUn uejZ doPB V9zW WBBE 2Vjf';
 
-	$invite_key = sanitize_text_field( $request->get_param( 'invite_key' ) );
+	return 'Basic ' . base64_encode( $lpw_username . ':' . $lpw_app_password );
+}
+
+/**
+ * Fetch a single Leaky Paywall group invite by key. Factored out of the
+ * bd_get_group_invite_details() REST callback below so the same server-side lookup
+ * can also be reused by handle_group_signup() (functions/magnaquest-api.php) to
+ * re-validate the invite at submit time instead of trusting client-submitted
+ * email/group_id alone.
+ *
+ * @param string $invite_key
+ * @return array{success:bool, message?:string, invite_key?:string, email?:string,
+ *               first_name?:string, last_name?:string, status?:string,
+ *               group_id?:string, group_name?:string, level_id?:string}
+ */
+function bd_fetch_group_invite( $invite_key ) {
 
 	if ( empty( $invite_key ) ) {
-		return new WP_REST_Response( array(
+		return array(
 			'success' => false,
 			'message' => 'Invite key is required.',
-		), 400 );
+		);
 	}
 
 	$url = home_url( '/wp-json/leaky-paywall/v1/group-invites/' . rawurlencode( $invite_key ) );
 
-$lpw_username     = 'pruthvi.chimmula@magnaquest.com';
-$lpw_app_password = 'nVUn uejZ doPB V9zW WBBE 2Vjf';
-
-$response = wp_remote_get( $url, array(
-	'headers' => array(
-		'Authorization' => 'Basic ' . base64_encode( $lpw_username . ':' . $lpw_app_password ),
-	),
-	'timeout' => 20,
-) );
+	$response = wp_remote_get( $url, array(
+		'headers' => array(
+			'Authorization' => bd_get_lpw_basic_auth_header(),
+		),
+		'timeout' => 20,
+	) );
 
 	if ( is_wp_error( $response ) ) {
-		return new WP_REST_Response( array(
+		return array(
 			'success' => false,
 			'message' => $response->get_error_message(),
-		), 500 );
+		);
 	}
 
 	$status_code = wp_remote_retrieve_response_code( $response );
 	$body        = json_decode( wp_remote_retrieve_body( $response ), true );
 
 	if ( $status_code !== 200 ) {
-		return new WP_REST_Response( array(
+		return array(
 			'success' => false,
 			'message' => 'Unable to fetch invite details.',
 			'data'    => $body,
-		), $status_code );
+		);
 	}
 
-	return new WP_REST_Response( array(
+	return array(
 		'success'    => true,
 		'invite_key' => $body['invite_key'] ?? '',
 		'email'      => $body['email'] ?? '',
@@ -1476,14 +1507,39 @@ $response = wp_remote_get( $url, array(
 		'group_id'   => $body['group']['id'] ?? '',
 		'group_name' => $body['group']['name'] ?? '',
 		'level_id'   => $body['group']['level_id'] ?? '',
+	);
+}
+
+function bd_get_group_invite_details( WP_REST_Request $request ) {
+
+	$invite_key = sanitize_text_field( $request->get_param( 'invite_key' ) );
+	$result     = bd_fetch_group_invite( $invite_key );
+
+	if ( ! $result['success'] ) {
+		$status_code = empty( $invite_key ) ? 400 : 500;
+		return new WP_REST_Response( $result, $status_code );
+	}
+
+	return new WP_REST_Response( array(
+		'success'    => true,
+		'invite_key' => $result['invite_key'],
+		'email'      => $result['email'],
+		'first_name' => $result['first_name'],
+		'last_name'  => $result['last_name'],
+		'status'     => $result['status'],
+		'group_id'   => $result['group_id'],
+		'group_name' => $result['group_name'],
+		'level_id'   => $result['level_id'],
 	), 200 );
 }
 
 
 /**
- * Rewrite the LP group invitation email's link to point at the external signup app.
- * The app receives only the invite_key; it derives email, name, and group_id by
- * calling GET /leaky-paywall/v1/group-invites/{invite_key}.
+ * Rewrite the LP group invitation email's link to point at the dedicated group
+ * signup/login page (template-parts/magnaquest/group-signup.php), not the regular
+ * (Magnaquest-backed) sign-up page. That page receives only the invite_key; it derives
+ * email, name, and group_id by calling GET /leaky-paywall/v1/group-invites/{invite_key}
+ * via the businessday/v1/group-invite proxy (bd_get_group_invite_details() above).
  */
 add_filter( 'wp_mail', function ( $args ) {
 
@@ -1497,7 +1553,9 @@ add_filter( 'wp_mail', function ( $args ) {
 
 	$invite_key = $m[1];
 	// Environment-driven (was hardcoded to the staging domain here); see bd_get_env_url().
-	$new_url    = rtrim( bd_get_env_url( 'home_url' ), '/' ) . '/sign-up/?invite_key=' . rawurlencode( $invite_key );
+	// Was '/sign-up/?invite_key=...' -- pointed at the regular Magnaquest-backed signup
+	// form, which would have created a Magnaquest customer record for a group member.
+	$new_url    = rtrim( bd_get_env_url( 'home_url' ), '/' ) . '/group-signup/?invite_key=' . rawurlencode( $invite_key );
 
 	$args['message'] = preg_replace(
 		'#https?://\S+?lp_group_invite_key=[^\s<>"]+#',
