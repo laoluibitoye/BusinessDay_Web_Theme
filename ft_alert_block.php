@@ -1,3 +1,4 @@
+<?php
 /**
  * =========================================================================
  * BEGIN: FT AUTOMATED ALERT SYSTEM INSERTION
@@ -5,6 +6,11 @@
  * FLUENTCRM REMOTE REST GATEWAY & SUBSCRIPTION MANAGER
  * =========================================================================
  */
+// FIX: file was missing its opening <?php tag, so everything before the
+// first inline "<?php settings_fields(...)" call further down was being
+// emitted as literal HTML instead of parsed as PHP -- the class was never
+// actually defined and FluentCRM_Remote_Manager::get_instance() at the
+// bottom of the file would have fataled with "Class not found".
 class FluentCRM_Remote_Manager {
     
     private static $instance = null;
@@ -31,7 +37,7 @@ class FluentCRM_Remote_Manager {
         
         // Ensure cron is scheduled based on settings
         if (!wp_next_scheduled('fc_remote_daily_digest_cron')) {
-            $digest_time = $this->get_setting('alert_digest_time', '08:00');
+            $digest_time = $this->get_setting('alert_digest_time', '18:00');
             $timestamp = strtotime('today ' . $digest_time);
             if ($timestamp < time()) {
                 $timestamp += DAY_IN_SECONDS;
@@ -235,7 +241,8 @@ class FluentCRM_Remote_Manager {
                     <tr>
                         <th scope="row"><label>Daily Digest Time</label></th>
                         <td>
-                            <input type="time" name="<?php echo esc_attr($this->settings_key); ?>[alert_digest_time]" value="<?php echo esc_attr($this->get_setting('alert_digest_time', '08:00')); ?>" class="regular-text">
+                            <label style="display: block; margin-bottom: 5px;"><strong>Daily Digest Time:</strong></label>
+                            <input type="time" name="<?php echo esc_attr($this->settings_key); ?>[alert_digest_time]" value="<?php echo esc_attr($this->get_setting('alert_digest_time', '18:00')); ?>" class="regular-text">
                             <p class="description">If 'Daily Digest' or 'Both' is selected, digests will be scheduled to send at this time (Server Time).</p>
                         </td>
                     </tr>
@@ -491,9 +498,8 @@ class FluentCRM_Remote_Manager {
             return;
         }
 
-        $delivery_mode = $this->get_setting('alert_delivery_mode', 'instant');
-        if ($delivery_mode === 'digest') {
-            return; // Handled by cron only
+        if (!has_tag(['bdlead', 'bdrecent'], $post->ID)) {
+            return;
         }
 
         $categories = get_the_category($post->ID);
@@ -540,74 +546,41 @@ class FluentCRM_Remote_Manager {
      * FT Automated Alert System: Daily Digest Dispatcher
      */
     public function handle_daily_digest_cron() {
-        $delivery_mode = $this->get_setting('alert_delivery_mode', 'instant');
-        if ($delivery_mode === 'instant') {
-            return; // Instant only
-        }
-
-        // Get posts from the last 24 hours
+        // Find posts from the last 24 hours
         $args = [
             'date_query' => [
                 [
                     'after' => '24 hours ago'
                 ]
             ],
+            'post_type' => 'post',
             'post_status' => 'publish',
-            'posts_per_page' => -1
+            'posts_per_page' => -1,
+            'tax_query' => [
+                [
+                    'taxonomy' => 'post_tag',
+                    'field'    => 'slug',
+                    'terms'    => ['bdlead', 'bdrecent'],
+                    'operator' => 'IN'
+                ]
+            ]
         ];
-        
+
         $recent_posts = get_posts($args);
         if (empty($recent_posts)) return;
 
-        $saved_mappings = $this->get_setting('category_mappings', []);
-        $visible_lists = $this->get_setting('visible_lists', []);
-        $global_broadcast_list = intval($this->get_setting('global_broadcast_list'));
-        $digest_payloads = [];
-
-        // Group posts by the list they belong to
+        $posts_data = [];
         foreach ($recent_posts as $post) {
-            $is_broadcast = ($global_broadcast_list > 0) && has_tag(['bdlead', 'bdrecent'], $post->ID);
-            $categories = get_the_category($post->ID);
-            
-            $assigned_lists = [];
-
-            if ($is_broadcast) {
-                $assigned_lists[] = $global_broadcast_list;
-            }
-
-            if (!empty($categories)) {
-                foreach ($categories as $cat) {
-                    $cat_id = intval($cat->term_id);
-                    if (!empty($saved_mappings[$cat_id])) {
-                        $list_id = intval($saved_mappings[$cat_id]);
-                        if (in_array($list_id, $visible_lists)) {
-                            $assigned_lists[] = $list_id;
-                        }
-                    }
-                }
-            }
-            
-            $assigned_lists = array_unique($assigned_lists);
-            
-            foreach ($assigned_lists as $list_id) {
-                if (!isset($digest_payloads[$list_id])) {
-                    $digest_payloads[$list_id] = [];
-                }
-                
-                $digest_payloads[$list_id][] = [
-                    'post_id' => $post->ID,
-                    'title'   => $post->post_title,
-                    'url'     => get_the_permalink($post->ID),
-                    'excerpt' => get_the_excerpt($post->ID)
-                ];
-            }
+            $posts_data[] = [
+                'title'   => $post->post_title,
+                'url'     => get_the_permalink($post->ID),
+                'excerpt' => get_the_excerpt($post)
+            ];
         }
 
-        if (empty($digest_payloads)) return;
-
         $payload = [
-            'type'    => 'digest',
-            'digests' => $digest_payloads
+            'type'  => 'digest',
+            'posts' => $posts_data
         ];
 
         $this->remote_api_request('send-alert', 'POST', $payload);
