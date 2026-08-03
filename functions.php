@@ -868,10 +868,14 @@ class FluentCRM_Remote_Manager {
         $payload = [
             'email'        => $email,
             'first_name'   => $first_name,
-            'last_name'    => $last_name, 
-            'lists'        => $lists_to_attach,
+            'last_name'    => $last_name,
+            'attach_lists' => $lists_to_attach,
             'detach_lists' => $lists_to_detach
         ];
+
+        if (isset($_POST['delivery_preference'])) {
+            $payload['delivery_preference'] = sanitize_text_field($_POST['delivery_preference']);
+        }
 
         $response = $this->remote_api_request('subscribe', 'POST', $payload);
 
@@ -981,6 +985,21 @@ class FluentCRM_Remote_Manager {
                         </div>
                         <div class="fc-field-group">
                             <input type="email" name="email" placeholder="Email Address" required>
+                        </div>
+                        <div class="fc-field-group" style="margin-bottom: 20px; margin-top: 15px; text-align: left;">
+                            <p style="font-size: 0.9rem; font-weight: 600; color: #0f172a; margin-bottom: 8px; margin-top:0;">Delivery Preference:</p>
+                            <label style="display: block; margin-bottom: 8px; font-size: 0.85rem; color: #475569; cursor: pointer;">
+                                <input type="radio" name="delivery_preference" value="instant" required style="margin-right: 6px;"> Instant Alerts (As news breaks)
+                            </label>
+                            <label style="display: block; margin-bottom: 8px; font-size: 0.85rem; color: #475569; cursor: pointer;">
+                                <input type="radio" name="delivery_preference" value="digest" required style="margin-right: 6px;"> Daily Digest (Once a day)
+                            </label>
+                            <label style="display: block; font-size: 0.85rem; color: #475569; cursor: pointer; margin-bottom: 8px;">
+                                <input type="radio" name="delivery_preference" value="both" required style="margin-right: 6px;"> Both
+                            </label>
+                            <label style="display: block; font-size: 0.85rem; color: #475569; cursor: pointer;">
+                                <input type="radio" name="delivery_preference" value="none" required style="margin-right: 6px;"> Standard Newsletter Only (No Automated Alerts)
+                            </label>
                         </div>
                         <button type="submit" class="fc-submit-btn">Subscribe to <?php echo esc_html($active_category->name); ?></button>
                     </form>
@@ -1173,6 +1192,28 @@ function bd_sync_selfcare_jwt_localstorage() {
                 </script>
                 <?php
             }
+        } elseif (empty($_SESSION['mq_restore_attempted'])) {
+            ?>
+            <script>
+                if (localStorage.getItem('selfcareJWT')) {
+                    var jwt = localStorage.getItem('selfcareJWT');
+                    jQuery.post(
+                        '<?php echo admin_url('admin-ajax.php'); ?>',
+                        {
+                            action: 'mq_restore_session',
+                            jwt: jwt,
+                            security: '<?php echo wp_create_nonce('mq_auth_nonce'); ?>'
+                        },
+                        function(response) {
+                            if (response.success) {
+                                console.log('Session restored successfully, reloading...');
+                                location.reload();
+                            }
+                        }
+                    );
+                }
+            </script>
+            <?php
         }
     } else {
         ?>
