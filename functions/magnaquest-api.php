@@ -215,6 +215,9 @@ function handle_mq_login() {
             wp_set_current_user($wp_user->ID);
             wp_set_auth_cookie($wp_user->ID, true);
             update_user_caches($wp_user);
+
+            // Sync subscription status immediately on successful login
+            bd_sync_user_subscription_from_magnaquest($wp_user->ID, true);
         }
 
         // Set secure cookie for Magnaquest session
@@ -889,6 +892,9 @@ function mq_custom_authenticate($user, $username, $password) {
     $cookie_val = $user_id_from_api ? $user_id_from_api : 'mq_user_' . $local_user->ID;
     setcookie('mq_session_token', base64_encode($cookie_val . ':' . $email), time() + (86400 * 30), "/", "", is_ssl(), true);
 
+    // Sync subscription status immediately on successful login
+    bd_sync_user_subscription_from_magnaquest($local_user->ID, true);
+
     return $local_user;
 }
 
@@ -916,4 +922,220 @@ function mq_custom_logout() {
     }
 }
 add_action('wp_logout', 'mq_custom_logout');
+
+/**
+ * Check if the user has an active subscription.
+ *
+ * @param int $user_id The WordPress User ID.
+ * @return bool True if the user has an active premium/standard subscription, false otherwise.
+ */
+function bd_user_has_active_subscription( $user_id ) {
+    if ( ! $user_id ) {
+        return false;
+    }
+
+    // 1. Staff check (Administrators, editors, etc. bypass subscription check)
+    $user = get_userdata( $user_id );
+    if ( $user ) {
+        $staff_roles = ['administrator', 'editor', 'author', 'wpseo_manager', 'bddraft', 'bdeditor', 'wpseo_editor'];
+        if ( array_intersect( $staff_roles, (array) $user->roles ) ) {
+            return true;
+        }
+    }
+
+    // 2. Perform background sync from Magnaquest if token is available and cache is expired
+    bd_sync_user_subscription_from_magnaquest( $user_id );
+
+    // 3. Check local Leaky Paywall metadata
+    $status      = strtolower( get_user_meta( $user_id, '_issuem_leaky_paywall_live_payment_status', true ) );
+    $level_id    = get_user_meta( $user_id, '_issuem_leaky_paywall_live_level_id', true );
+    $description = strtolower( get_user_meta( $user_id, '_issuem_leaky_paywall_live_description', true ) );
+    $expires     = get_user_meta( $user_id, '_issuem_leaky_paywall_live_expires', true );
+
+    if ( $status === 'active' && $level_id != '4' && strpos( $description, 'free' ) === false ) {
+        if ( empty( $expires ) || strtotime( $expires ) > time() ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Sync user subscription data from Magnaquest and update local Leaky Paywall metadata.
+ *
+ * @param int  $user_id The WordPress User ID.
+ * @param bool $force   Optional. Force sync bypassing the cache.
+ */
+function bd_sync_user_subscription_from_magnaquest( $user_id, $force = false ) {
+    if ( session_status() === PHP_SESSION_NONE && ! headers_sent() ) {
+        session_start();
+    }
+
+    if ( empty( $_SESSION['selfcareJWT'] ) ) {
+        return;
+    }
+
+    $jwt_data = json_decode( $_SESSION['selfcareJWT'], true );
+    $accessToken = $jwt_data['accessToken'] ?? '';
+    if ( empty( $accessToken ) ) {
+        return;
+    }
+
+    // Decode JWT to retrieve customerNo
+    $parts = explode( '.', $accessToken );
+    if ( count( $parts ) < 2 ) {
+        return;
+    }
+    $payload_b64 = $parts[1];
+    $payload = json_decode( base64_decode( str_replace( ['-', '_'], ['+', '/'], $payload_b64 ) ), true );
+    $customerNo = $payload['customerNo'] ?? '';
+    if ( empty( $customerNo ) ) {
+        return;
+    }
+
+    // Cache check: only check every 12 hours unless forced (reduces AWS cost / resource usage)
+    $last_checked = get_user_meta( $user_id, '_mq_subscription_last_checked', true );
+    if ( ! $force && ! empty( $last_checked ) && ( time() - $last_checked ) < 43200 ) {
+        return;
+    }
+
+    // Query GetCustomerDetails API
+    if (!defined('MQ_API_GET_CUSTOMER_DETAILS_URL')) {
+        define('MQ_API_GET_CUSTOMER_DETAILS_URL', 'https://businessday.magnaquest.com/WebApi/Restapi/GetCustomerDetails');
+    }
+
+    $guid = mq_generate_guid();
+    $full_url = add_query_arg('ReferenceNo', $guid, MQ_API_GET_CUSTOMER_DETAILS_URL);
+
+    $headers = [
+        'Content-Type'  => 'application/json',
+        'Authorization' => 'Bearer ' . $accessToken
+    ];
+
+    $payload_req = [
+        'customerNo' => $customerNo
+    ];
+
+    error_log('Magnaquest GetCustomerDetails Request for User: ' . $user_id);
+
+    $response = wp_remote_post( $full_url, [
+        'body'    => wp_json_encode( $payload_req ),
+        'headers' => $headers,
+        'timeout' => 20,
+    ] );
+
+    if ( is_wp_error( $response ) ) {
+        error_log('Magnaquest GetCustomerDetails Connection Error: ' . $response->get_error_message());
+        return;
+    }
+
+    $status_code = wp_remote_retrieve_response_code( $response );
+    $response_body_str = wp_remote_retrieve_body( $response );
+
+    if ( $status_code !== 200 ) {
+        error_log('Magnaquest GetCustomerDetails HTTP Error: ' . $status_code);
+        return;
+    }
+
+    $response_body = json_decode( $response_body_str, true );
+    if ( ! is_array( $response_body ) ) {
+        return;
+    }
+
+    error_log('Magnaquest GetCustomerDetails Response: ' . wp_json_encode($response_body));
+
+    $errorNo = $response_body['status']['errorNo'] ?? -1;
+    if ( $errorNo === 0 && ! empty( $response_body['data']['subscriptionInfo'] ) ) {
+        $sub_info = $response_body['data']['subscriptionInfo'];
+
+        $sub_status = $sub_info['subscriptionStatus'] ?? '';
+        $plan_arr = $sub_info['currentActivePlan'] ?? [];
+        $plan_name = ! empty( $plan_arr ) ? $plan_arr[0] : '';
+        $expiry_date = $sub_info['subscriptionExpiryDateTime'] ?? '';
+
+        if ( strtolower( $sub_status ) === 'active' ) {
+            // Update local metadata to match active subscription
+            update_user_meta( $user_id, '_issuem_leaky_paywall_live_payment_status', 'active' );
+            update_user_meta( $user_id, '_issuem_leaky_paywall_live_level_id', '1' ); // 1 is standard active level
+            update_user_meta( $user_id, '_issuem_leaky_paywall_live_description', $plan_name );
+
+            if ( ! empty( $expiry_date ) ) {
+                $expiry_timestamp = strtotime( $expiry_date );
+                if ( $expiry_timestamp !== false ) {
+                    update_user_meta( $user_id, '_issuem_leaky_paywall_live_expires', date( 'Y-m-d H:i:s', $expiry_timestamp ) );
+                }
+            } else {
+                update_user_meta( $user_id, '_issuem_leaky_paywall_live_expires', '' );
+            }
+        } else {
+            // User does not have an active subscription
+            update_user_meta( $user_id, '_issuem_leaky_paywall_live_payment_status', 'deactivated' );
+            update_user_meta( $user_id, '_issuem_leaky_paywall_live_expires', date( 'Y-m-d H:i:s', time() - 3600 ) ); // Expired 1 hour ago
+        }
+
+        update_user_meta( $user_id, '_mq_subscription_last_checked', time() );
+    }
+}
+
+/**
+ * Handle Restore Session AJAX
+ */
+add_action('wp_ajax_mq_restore_session', 'handle_mq_restore_session');
+add_action('wp_ajax_nopriv_mq_restore_session', 'handle_mq_restore_session');
+
+function handle_mq_restore_session() {
+    check_ajax_referer('mq_auth_nonce', 'security');
+
+    $jwt_str = $_POST['jwt'] ?? '';
+    if (empty($jwt_str)) {
+        wp_send_json_error(['message' => 'JWT is empty.']);
+    }
+
+    $jwt_data = json_decode(stripslashes($jwt_str), true);
+    if (empty($jwt_data) || empty($jwt_data['accessToken'])) {
+        wp_send_json_error(['message' => 'Invalid JWT data.']);
+    }
+
+    // Decode JWT and verify that the email inside matches the currently logged in user (if logged in)
+    $accessToken = $jwt_data['accessToken'];
+    $parts = explode('.', $accessToken);
+    if (count($parts) >= 2) {
+        $payload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $parts[1])), true);
+        $user_info_raw = $payload['userinfo'] ?? '';
+        if (!empty($user_info_raw)) {
+            $user_info = json_decode($user_info_raw, true);
+            $jwt_email = $user_info['username'] ?? '';
+
+            if (is_user_logged_in()) {
+                $current_user = wp_get_current_user();
+                if (strcasecmp($current_user->user_email, $jwt_email) !== 0) {
+                    wp_send_json_error(['message' => 'JWT email mismatch.']);
+                }
+            }
+        }
+    }
+
+    if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        session_start();
+    }
+
+    $_SESSION['mq_restore_attempted'] = true;
+
+    $_SESSION['selfcareJWT'] = wp_json_encode([
+        'expiresIn'    => $jwt_data['expiresIn'] ?? '1440',
+        'accessToken'  => $jwt_data['accessToken'] ?? '',
+        'refreshToken' => $jwt_data['refreshToken'] ?? '',
+        'userType'     => $jwt_data['userType'] ?? 'C',
+        'userDescr'    => $jwt_data['userDescr'] ?? ''
+    ]);
+
+    if (is_user_logged_in()) {
+        $user_id = get_current_user_id();
+        // Immediately sync subscription status
+        bd_sync_user_subscription_from_magnaquest($user_id, true);
+    }
+
+    wp_send_json_success(['message' => 'Session restored.']);
+}
 
