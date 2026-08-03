@@ -148,11 +148,48 @@
     color: #D62828;
     text-decoration: underline;
 }
+/* Member Login / Group Login tabs */
+.mq-auth-tabs {
+    display: flex;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.mq-auth-tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    margin-bottom: -1px;
+}
+.mq-auth-tab.active {
+    color: #E63946;
+    border-bottom-color: #E63946;
+}
+.mq-auth-pane {
+    display: none;
+}
+.mq-auth-pane.active {
+    display: block;
+}
 </style>
 
 <div class="mq-auth-container">
     <h2 class="mq-auth-title">Log in to your account</h2>
-    
+
+    <div class="mq-auth-tabs">
+        <button type="button" class="mq-auth-tab active" data-pane="mq-pane-member">Member Login</button>
+        <button type="button" class="mq-auth-tab" data-pane="mq-pane-group">Group Login</button>
+    </div>
+
+    <!-- Member Login: unchanged, still authenticates against Magnaquest via handle_mq_login() -->
+    <div class="mq-auth-pane active" id="mq-pane-member">
+
     <div id="mq-login-alert" class="mq-alert"></div>
 
     <form id="mq-login-form">
@@ -197,10 +234,95 @@
     <div class="mq-auth-footer">
         Don't have an account? <a href="/sign-up">Sign up</a>
     </div>
+    </div>
+    <!-- /#mq-pane-member -->
+
+    <!-- Group Login: WordPress + Leaky Paywall only, never calls Magnaquest.
+         See handle_group_login() in functions/magnaquest-api.php — it authenticates
+         directly (wp_check_password + wp_set_auth_cookie) instead of going through
+         wp_signon()/the "authenticate" filter, because mq_custom_authenticate() is
+         hooked there and would otherwise force this login through Magnaquest too. -->
+    <div class="mq-auth-pane" id="mq-pane-group">
+
+    <div id="mq-group-login-alert" class="mq-alert"></div>
+
+    <form id="mq-group-login-form">
+        <div class="mq-form-group">
+            <label class="mq-form-label" for="group_login_username">Email Address</label>
+            <input type="email" id="group_login_username" name="group_login_username" class="mq-form-input" required placeholder="you@example.com">
+        </div>
+        <div class="mq-form-group">
+            <label class="mq-form-label" for="group_password">Password</label>
+            <div class="mq-password-wrapper">
+                <input type="password" id="group_password" name="password" class="mq-form-input" required placeholder="••••••••">
+            </div>
+        </div>
+
+        <input type="hidden" name="action" value="mq_group_login">
+        <input type="hidden" name="security" value="<?php echo wp_create_nonce('mq_auth_nonce'); ?>">
+
+        <button type="submit" class="mq-submit-btn" id="mq-group-login-btn">Sign In</button>
+    </form>
+    </div>
+    <!-- /#mq-pane-group -->
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Member Login / Group Login tab switching
+    document.querySelectorAll('.mq-auth-tab').forEach(function(tabBtn) {
+        tabBtn.addEventListener('click', function() {
+            document.querySelectorAll('.mq-auth-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.mq-auth-pane').forEach(function(p) { p.classList.remove('active'); });
+            tabBtn.classList.add('active');
+            document.getElementById(tabBtn.getAttribute('data-pane')).classList.add('active');
+        });
+    });
+
+    // Group Login submit handler
+    const groupForm = document.getElementById('mq-group-login-form');
+    const groupAlertBox = document.getElementById('mq-group-login-alert');
+    const groupBtn = document.getElementById('mq-group-login-btn');
+
+    groupForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        groupAlertBox.className = 'mq-alert';
+        groupAlertBox.innerHTML = '';
+
+        groupBtn.classList.add('loading');
+        groupBtn.innerHTML = 'Signing in...';
+
+        const formData = new FormData(groupForm);
+
+        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            groupBtn.classList.remove('loading');
+            groupBtn.innerHTML = 'Sign In';
+
+            if (data.success) {
+                groupAlertBox.className = 'mq-alert success';
+                groupAlertBox.innerHTML = data.data.message;
+                setTimeout(() => {
+                    window.location.href = data.data.redirect;
+                }, 1000);
+            } else {
+                groupAlertBox.className = 'mq-alert error';
+                groupAlertBox.innerHTML = data.data.message;
+            }
+        })
+        .catch(error => {
+            groupBtn.classList.remove('loading');
+            groupBtn.innerHTML = 'Sign In';
+            groupAlertBox.className = 'mq-alert error';
+            groupAlertBox.innerHTML = 'A network error occurred. Please try again.';
+        });
+    });
+
     // Password visibility toggle
     const toggleBtn = document.querySelector('.mq-password-toggle');
     if (toggleBtn) {
