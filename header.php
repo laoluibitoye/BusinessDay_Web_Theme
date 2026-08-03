@@ -474,7 +474,7 @@ elseif ( is_user_logged_in() ) {
       staging included.
     -->
     <?php if ( $show_programmatic_ads ) : ?>
-            <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js" crossorigin="anonymous"></script>
+            <script id="gpt-ad-tag" async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js" crossorigin="anonymous"></script>
 <script>
 window.googletag = window.googletag || { cmd: [] };
 googletag.cmd.push(function () {
@@ -1072,7 +1072,7 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
     </style>
 
     <?php if ( $show_programmatic_ads ) : ?>
-    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+    <script id="gpt-ad-tag" async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
 
     <div class="d-none d-md-block">
         <script>
