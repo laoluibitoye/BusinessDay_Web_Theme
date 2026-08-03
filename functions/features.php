@@ -460,6 +460,10 @@ function bd_register_general_settings(): void
 		'bday_legacy_premium',
 		'bday_legacy_premium'
    );
+   register_setting(
+		'bd_theme_environment',
+		'bd_theme_environment'
+   );
 }
 add_action('admin_init', 'bd_register_general_settings');
 
@@ -493,6 +497,16 @@ function bd_settings_panel()
 		'bday_legacy_premium_setup_main_page',
 		'dashicons-lock',
 		7
+	);
+
+	add_menu_page(
+		__('Theme Environment', 'bd_theme_environment'),
+		__('Theme Environment', 'bd_theme_environment'),
+		'manage_options',
+		'bd_theme_environment_setup',
+		'bd_theme_environment_setup_main_page',
+		'dashicons-admin-site-alt3',
+		8
 	);
 }
 add_action('admin_menu', 'bd_settings_panel');
@@ -1209,6 +1223,79 @@ function bday_legacy_premium_url_field(array $args = array()) {
         esc_attr($val),
         esc_attr($default_val)
     );
+}
+
+/**
+ * Theme Environment settings page: toggles bd_get_env_url() (functions/magnaquest-api.php)
+ * between the live and staging Magnaquest/domain endpoints without editing PHP.
+ */
+function bd_theme_environment_setup_main_page(): void
+{
+    ?>
+    <div class="wrap">
+        <h1>Theme Environment Settings</h1>
+        <p>Choose which Magnaquest API and domain endpoints (login, register, self-care, checkout, home/login URLs) the theme should use. Switch to Staging while testing, and back to Live for production.</p>
+        <form action="options.php" method="post">
+            <?php
+            settings_fields('bd_theme_environment');
+            do_settings_sections('bd_theme_environment');
+            ?>
+            <input type="submit" name="submit" class="button button-primary" value="<?php esc_attr_e('Save Changes'); ?>" />
+        </form>
+    </div>
+    <?php
+}
+
+add_action('admin_init', 'bd_theme_environment_fields');
+function bd_theme_environment_fields() {
+    $section_id = 'bd_theme_environment_section';
+
+    add_settings_section(
+        $section_id,
+        'Settings',
+        '',
+        'bd_theme_environment'
+    );
+
+    add_settings_field(
+        'environment',
+        'Active Environment:',
+        'bd_theme_environment_dropdown_field',
+        'bd_theme_environment',
+        $section_id,
+        array(
+            'field_name' => 'environment',
+            'option_name' => 'bd_theme_environment',
+        )
+    );
+}
+
+function bd_theme_environment_dropdown_field(array $args = array()) {
+    $field_name = $args['field_name'] ?? '';
+    $option_name = $args['option_name'] ?? '';
+    $choices = [
+        'live'    => 'Live (Production)',
+        'staging' => 'Staging (Test)',
+    ];
+
+    if ('' === $field_name || '' === $option_name) {
+        return;
+    }
+
+    $options = get_option($option_name);
+    // Defaults to 'staging' to match this codebase's previous hardcoded default (see bd_get_theme_environment()).
+    $selected_value = $options[$field_name] ?? 'staging';
+
+    printf('<select name="%s">', esc_attr($option_name . '[' . $field_name . ']'));
+    foreach ($choices as $value => $label) {
+        printf(
+            '<option value="%s" %s>%s</option>',
+            esc_attr($value),
+            selected($selected_value, $value, false),
+            esc_html($label)
+        );
+    }
+    echo '</select>';
 }
 
 ?>

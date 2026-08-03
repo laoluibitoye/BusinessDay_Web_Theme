@@ -4,10 +4,11 @@
  */
 
 // Configuration
-$loginUrl = 'https://stg18326.businessday.ng/Login/';
-$selfcareOrigin = 'https://businessdaytest-selfcare.magnaquest.com';
+// Environment-driven (Settings -> Theme Environment) — was hardcoded to staging here.
+$loginUrl = bd_get_env_url('login_page_url');
+$selfcareOrigin = bd_get_env_url('selfcare_origin');
 $selfcareMyAccountUrl = $selfcareOrigin . '/#/account';
-$checkoutOrigin = 'https://businessdaytest.magnaquest.com';
+$checkoutOrigin = bd_get_env_url('checkout_origin');
 
 if (!is_user_logged_in()) {
     wp_redirect($loginUrl);

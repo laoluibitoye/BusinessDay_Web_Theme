@@ -1,11 +1,12 @@
 <?php
 
 // Configuration
-$loginUrl = 'https://stg18326.businessday.ng/Login/';
-$homeUrl = 'https://stg18326.businessday.ng/';
+// Environment-driven (Settings -> Theme Environment) — was hardcoded to staging here.
+$loginUrl = bd_get_env_url('login_page_url');
+$homeUrl = bd_get_env_url('home_url');
 
-$selfcareOrigin = 'https://businessdaytest-selfcare.magnaquest.com';
-$checkoutOrigin = 'https://businessdaytest.magnaquest.com';
+$selfcareOrigin = bd_get_env_url('selfcare_origin');
+$checkoutOrigin = bd_get_env_url('checkout_origin');
 
 $subscriptionUrl = $selfcareOrigin . '/#/account/mySubscription';
 

@@ -1282,9 +1282,10 @@ function mq_custom_logout_sync() {
     }
 
     /* Configuration */
-
-    $RedirectUrl       = 'https://stg18326.businessday.ng/';
-    $selfcareOrigin    = 'https://businessdaytest-selfcare.magnaquest.com';
+    // Environment-driven (Settings -> Theme Environment) — was hardcoded to the staging
+    // domain/selfcare origin here; see bd_get_env_url() in functions/magnaquest-api.php.
+    $RedirectUrl       = bd_get_env_url('home_url');
+    $selfcareOrigin    = bd_get_env_url('selfcare_origin');
     $HiddenIframeUrl   = $selfcareOrigin . '/#/account/mySubscription';
 
     //WordPress logout URL
@@ -1495,7 +1496,8 @@ add_filter( 'wp_mail', function ( $args ) {
 	}
 
 	$invite_key = $m[1];
-	$new_url    = 'https://stg18326.businessday.ng/sign-up/?invite_key=' . rawurlencode( $invite_key );
+	// Environment-driven (was hardcoded to the staging domain here); see bd_get_env_url().
+	$new_url    = rtrim( bd_get_env_url( 'home_url' ), '/' ) . '/sign-up/?invite_key=' . rawurlencode( $invite_key );
 
 	$args['message'] = preg_replace(
 		'#https?://\S+?lp_group_invite_key=[^\s<>"]+#',

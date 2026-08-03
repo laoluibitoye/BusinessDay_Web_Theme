@@ -6,31 +6,119 @@
 
 @ini_set('display_errors', 0);
 
-// Magnaquest Staging API Endpoints
+/**
+ * Theme environment (live/staging) config lookup — see functions/features.php for the
+ * "Theme Environment" admin settings page that sets the bd_theme_environment option.
+ * Centralizes every Magnaquest/domain URL that used to be a hardcoded literal here (and in
+ * functions.php, header.php, and the magnaquest template-parts) so switching between the
+ * live and staging Magnaquest environments no longer requires editing PHP by hand.
+ *
+ * @return string 'live' or 'staging' (defaults to 'staging' to match this codebase's
+ *                previous hardcoded default).
+ */
+function bd_get_theme_environment() {
+    $opts = get_option('bd_theme_environment', []);
+    $env = is_array($opts) && isset($opts['environment']) ? $opts['environment'] : 'staging';
+    return $env === 'live' ? 'live' : 'staging';
+}
+
+/**
+ * Resolve an environment-sensitive URL by key. See bd_get_theme_environment() above.
+ *
+ * @param string $key One of: login, register, change_password, forgot_password,
+ *                     reset_password, find_appuser, selfcare_reset_password,
+ *                     send_password_reset_link, selfcare_origin, checkout_origin,
+ *                     home_url, login_page_url, home_dropdown_url.
+ * @return string
+ */
+function bd_get_env_url($key) {
+    $env = bd_get_theme_environment();
+    $urls = [
+        'login' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/Login',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/Login',
+        ],
+        'register' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/CreateCustomer',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/CreateCustomer',
+        ],
+        'change_password' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/ChangePassword',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ChangePassword',
+        ],
+        'forgot_password' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/ForgotPassword',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ForgotPassword',
+        ],
+        'reset_password' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/ResetPassword',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ResetPassword',
+        ],
+        'find_appuser' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/FindAppuserByLogintypeAndLoginName',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/FindAppuserByLogintypeAndLoginName',
+        ],
+        'selfcare_reset_password' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/SelfcareResetPassword',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/SelfcareResetPassword',
+        ],
+        'send_password_reset_link' => [
+            'live'    => 'https://businessday.magnaquest.com/WebApi/Restapi/SendPasswordResetLink',
+            'staging' => 'https://businessdaytest.magnaquest.com/WebApi/Restapi/SendPasswordResetLink',
+        ],
+        // Selfcare/checkout origins and site URLs used outside the WebApi/Restapi endpoints above.
+        'selfcare_origin' => [
+            'live'    => 'https://businessday-selfcare.magnaquest.com',
+            'staging' => 'https://businessdaytest-selfcare.magnaquest.com',
+        ],
+        'checkout_origin' => [
+            'live'    => 'https://businessday.magnaquest.com',
+            'staging' => 'https://businessdaytest.magnaquest.com',
+        ],
+        'home_url' => [
+            'live'    => 'https://businessday.ng/',
+            'staging' => 'https://stg18326.businessday.ng/',
+        ],
+        'login_page_url' => [
+            'live'    => 'https://businessday.ng/Login/',
+            'staging' => 'https://stg18326.businessday.ng/Login/',
+        ],
+        // No trailing slash — used for the header.php user-menu "Home" dropdown link.
+        'home_dropdown_url' => [
+            'live'    => 'https://businessday.ng',
+            'staging' => 'https://stg18326.businessday.ng',
+        ],
+    ];
+
+    return $urls[$key][$env] ?? '';
+}
+
+// Magnaquest API Endpoints (environment-driven — see bd_get_env_url() above).
+// Previously hardcoded to the staging domain (businessdaytest.magnaquest.com) here.
 if (!defined('MQ_API_LOGIN_URL')) {
-    define('MQ_API_LOGIN_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/Login');
+    define('MQ_API_LOGIN_URL', bd_get_env_url('login'));
 }
 if (!defined('MQ_API_REGISTER_URL')) {
-    define('MQ_API_REGISTER_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/CreateCustomer');
+    define('MQ_API_REGISTER_URL', bd_get_env_url('register'));
 }
 if (!defined('MQ_API_CHANGE_PASSWORD_URL')) {
-    define('MQ_API_CHANGE_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ChangePassword');
+    define('MQ_API_CHANGE_PASSWORD_URL', bd_get_env_url('change_password'));
 }
 if (!defined('MQ_API_FORGOT_PASSWORD_URL')) {
-    define('MQ_API_FORGOT_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ForgotPassword');
+    define('MQ_API_FORGOT_PASSWORD_URL', bd_get_env_url('forgot_password'));
 }
 if (!defined('MQ_API_RESET_PASSWORD_URL')) {
-    define('MQ_API_RESET_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/ResetPassword');
+    define('MQ_API_RESET_PASSWORD_URL', bd_get_env_url('reset_password'));
 }
 if (!defined('MQ_API_FIND_APPUSER_URL')) {
-    define('MQ_API_FIND_APPUSER_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/FindAppuserByLogintypeAndLoginName');
+    define('MQ_API_FIND_APPUSER_URL', bd_get_env_url('find_appuser'));
 }
 if (!defined('MQ_API_SELFCARE_RESET_PASSWORD_URL')) {
-    define('MQ_API_SELFCARE_RESET_PASSWORD_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/SelfcareResetPassword');
+    define('MQ_API_SELFCARE_RESET_PASSWORD_URL', bd_get_env_url('selfcare_reset_password'));
 }
 
 if (!defined('MQ_API_SEND_PASSWORD_RESET_LINK_URL')) {
-    define('MQ_API_SEND_PASSWORD_RESET_LINK_URL', 'https://businessdaytest.magnaquest.com/WebApi/Restapi/SendPasswordResetLink');
+    define('MQ_API_SEND_PASSWORD_RESET_LINK_URL', bd_get_env_url('send_password_reset_link'));
 }
 
 

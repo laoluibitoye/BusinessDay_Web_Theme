@@ -1411,7 +1411,7 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
                                         <div class="user-name text-truncate"><?php echo esc_html($user_name); ?></div>
                                     </li>
 				    <li>
-    					<a class="dropdown-item" href="https://stg18326.businessday.ng">
+    					<a class="dropdown-item" href="<?php echo esc_url( bd_get_env_url('home_dropdown_url') ); ?>">
         					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"></path>
             			<path d="M9 21V9h6v12"></path></svg>
         				   Home
