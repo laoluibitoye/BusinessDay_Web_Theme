@@ -21,19 +21,11 @@
                         <?php
                             $has_sub = false;
                             if ( is_user_logged_in() ) {
-                                $user_id = get_current_user_id();
-                                $status = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_payment_status', true));
-                                $level_id = get_user_meta($user_id, '_issuem_leaky_paywall_live_level_id', true);
-                                $description = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_description', true));
-                                $expires = get_user_meta($user_id, '_issuem_leaky_paywall_live_expires', true);
-                    
-                                if ( $status === 'active' && $level_id != '4' && strpos($description, 'free') === false ) {
-                                    if ( empty($expires) || strtotime($expires) > time() ) {
-                                        $has_sub = true;
-                                    }
-                                }
+                                // Delegates to the shared subscription check (functions/magnaquest-api.php)
+                                // instead of re-reading the Leaky Paywall usermeta inline.
+                                $has_sub = bd_user_has_active_subscription( get_current_user_id() );
                             }
-                            
+
                             if ( ! $has_sub ) {
                                 // Display subscribe message instead of the PDF viewer
                                 ?>

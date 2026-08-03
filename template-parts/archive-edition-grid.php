@@ -115,7 +115,15 @@ foreach ($categories_to_show as $slug => $label) {
         </div>
     <?php endif; ?>
    
-    <?php if ( is_user_logged_in() ) : ?>
+     <?php
+     $is_logged_in = is_user_logged_in();
+     $has_sub = false;
+     if ( $is_logged_in ) {
+         $has_sub = bd_user_has_active_subscription( get_current_user_id() );
+     }
+
+     if ( $is_logged_in && $has_sub ) :
+     ?>
         <div class="news">
             <div class="row">
                 <?php if (!empty($posts)) : ?>
@@ -140,6 +148,14 @@ foreach ($categories_to_show as $slug => $label) {
                     'next_text' => '»',
                     'prev_text' => '«'
                 ]); ?>
+            </div>
+        </div>
+    <?php elseif ( $is_logged_in && ! $has_sub ) : ?>
+        <div class="paywall-message" style="padding: 40px; background: #fff; border: 2px solid #eee; border-radius: 8px; text-align: center; margin-top: 30px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <h3 style="margin-top: 0; font-size: 1.8em; font-weight: 700; color: #111;">Subscription Required</h3>
+            <p style="font-size: 16px; color: #555;">An active subscription is required to browse the E-edition archives.</p>
+            <div style="margin-top: 20px;">
+                <a href="/subscribe/" class="btn" style="background: #d63031; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 20px; display: inline-block; margin: 5px; font-weight: 600;">Subscribe Now</a>
             </div>
         </div>
     <?php else : ?>
