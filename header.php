@@ -11,18 +11,10 @@ if ( is_page_template('magnaquest.php') || is_page(array('login', 'subscribe', '
 // 2. Hide ads for ACTIVE PREMIUM subscribers (Block Free Registration)
 elseif ( is_user_logged_in() ) {
     $user_id = get_current_user_id();
-    
-    $is_active_premium = false;
-    $status = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_payment_status', true));
-    $level_id = get_user_meta($user_id, '_issuem_leaky_paywall_live_level_id', true);
-    $description = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_description', true));
-    $expires = get_user_meta($user_id, '_issuem_leaky_paywall_live_expires', true);
 
-    if ( $status === 'active' && $level_id != '4' && strpos($description, 'free') === false ) {
-        if ( empty($expires) || strtotime($expires) > time() ) {
-            $is_active_premium = true;
-        }
-    }
+    // Delegates to the shared subscription check (functions/magnaquest-api.php) instead of
+    // re-reading the Leaky Paywall usermeta inline, so login-time Magnaquest sync is reused here too.
+    $is_active_premium = bd_user_has_active_subscription( $user_id );
 
     if ( $is_active_premium ) {
         $show_programmatic_ads = false;
@@ -59,6 +51,44 @@ elseif ( is_user_logged_in() ) {
     <script>
         // Tell any custom scripts that ads are disabled
         window.DISABLE_PROGRAMMATIC_ADS = true;
+
+        // Dummy googletag object to prevent JS errors when ads are disabled
+        window.googletag = {
+            cmd: [],
+            enums: {
+                OutOfPageFormat: {
+                    TOP_ANCHOR: 'TOP_ANCHOR',
+                    BOTTOM_ANCHOR: 'BOTTOM_ANCHOR',
+                    LEFT_SIDE_RAIL: 'LEFT_SIDE_RAIL',
+                    RIGHT_SIDE_RAIL: 'RIGHT_SIDE_RAIL',
+                    INTERSTITIAL: 'INTERSTITIAL'
+                }
+            },
+            defineSlot: function() { return this; },
+            defineOutOfPageSlot: function() { return this; },
+            addService: function() { return this; },
+            pubads: function() {
+                return {
+                    enableSingleRequest: function() {},
+                    enableLazyLoad: function() {},
+                    collapseEmptyDivs: function() {},
+                    setTargeting: function() {},
+                    refresh: function() {},
+                    addEventListener: function() {}
+                };
+            },
+            enableServices: function() {},
+            display: function() {},
+            sizeMapping: function() {
+                return {
+                    addSize: function() { return this; },
+                    build: function() { return this; }
+                };
+            }
+        };
+        window.googletag.cmd.push = function(cb) {
+            // Do not execute callbacks to block ads from loading
+        };
     </script>
     <?php else: ?>
     <!-- DEBUG: PROGRAMMATIC ADS ENABLED -->
@@ -445,7 +475,6 @@ elseif ( is_user_logged_in() ) {
     -->
     <?php if ( $show_programmatic_ads ) : ?>
             <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js" crossorigin="anonymous"></script>
-    <?php endif; ?>
 <script>
 window.googletag = window.googletag || { cmd: [] };
 googletag.cmd.push(function () {
@@ -656,6 +685,7 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
 
 });
 </script>
+    <?php endif; ?>
     <!--dochase end-->
     <?php if (amp_is_request()): ?>
 
@@ -1043,7 +1073,6 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
 
     <?php if ( $show_programmatic_ads ) : ?>
     <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
-    <?php endif; ?>
 
     <div class="d-none d-md-block">
         <script>
@@ -1106,6 +1135,7 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
             });
         </script>
     </div>
+    <?php endif; ?>
 
     <script type="text/javascript">
         window._taboola = window._taboola || [];
@@ -1153,6 +1183,7 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
   })();
 </script>
 </head>
+<?php if ( $show_programmatic_ads ) : ?>
 <div class="d-none">
     <script>
         window.googletag = window.googletag || {
@@ -1223,6 +1254,7 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
         });
     </script>
 </div>
+<?php endif; ?>
 
 <script defer src="https://terrific.live/terrific-sdk.js" storeId="hcIgBSw8yP8qpUmQrosv"></script>
 
@@ -1543,13 +1575,18 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
         window.googletag = window.googletag || {
             cmd: []
         };
-
-        // Define out-of-page slots dynamically
-        googletag.defineOutOfPageSlot('/21781351181/bd_left_rail', googletag.enums.OutOfPageFormat.LEFT_SIDE_RAIL).addService(googletag.pubads());
-        googletag.defineOutOfPageSlot('/21781351181/bd_right_rail', googletag.enums.OutOfPageFormat.RIGHT_SIDE_RAIL).addService(googletag.pubads());
-
-        // Enable features
-        googletag.pubads().enableSingleRequest();
-        googletag.pubads().collapseEmptyDivs();
-        googletag.enableServices();
     </script>
+    <?php if ( $show_programmatic_ads ) : ?>
+    <script>
+        googletag.cmd.push(function() {
+            // Define out-of-page slots dynamically
+            googletag.defineOutOfPageSlot('/21781351181/bd_left_rail', googletag.enums.OutOfPageFormat.LEFT_SIDE_RAIL).addService(googletag.pubads());
+            googletag.defineOutOfPageSlot('/21781351181/bd_right_rail', googletag.enums.OutOfPageFormat.RIGHT_SIDE_RAIL).addService(googletag.pubads());
+
+            // Enable features
+            googletag.pubads().enableSingleRequest();
+            googletag.pubads().collapseEmptyDivs();
+            googletag.enableServices();
+        });
+    </script>
+    <?php endif; ?>
