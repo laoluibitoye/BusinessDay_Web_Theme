@@ -34,23 +34,40 @@ const SELFCARE_ORIGIN = "<?php echo esc_js($selfcareOrigin); ?>";
 const CHECKOUT_ORIGIN = "<?php echo esc_js($checkoutOrigin); ?>"
 
 window.addEventListener("load", function () {
-
     const iframe = document.getElementById("mqIframe");
     const token = localStorage.getItem("selfcareJWT");
 
     console.log("JWT:", token);
 
-    setTimeout(function () {
+    function sendToken() {
+        if (!token || !iframe || !iframe.contentWindow) return;
+        try {
+            iframe.contentWindow.postMessage(
+                {
+                    type: "SET_JWT",
+                    token: token
+                },
+                SELFCARE_ORIGIN
+            );
+            console.log("JWT sent to iframe");
+        } catch (e) {
+            console.error("Failed to send token:", e);
+        }
+    }
 
-        iframe.contentWindow.postMessage(
-            {
-                type: "SET_JWT",
-                token: token
-            },
-            SELFCARE_ORIGIN
-        );
-        console.log("JWT sent to iframe");
-    }, 3000);
+    // Progressive transmission on load to capture the iframe as soon as its scripts mount
+    iframe.addEventListener("load", function() {
+        sendToken();
+        setTimeout(sendToken, 200);
+        setTimeout(sendToken, 500);
+        setTimeout(sendToken, 1000);
+        setTimeout(sendToken, 2000);
+        setTimeout(sendToken, 3000);
+    });
+
+    // Immediate attempt in case load has already occurred
+    sendToken();
+    setTimeout(sendToken, 500);
 });
 
 
