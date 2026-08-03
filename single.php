@@ -34,17 +34,18 @@
     
 
     $cats = wp_get_post_categories($post->ID, array( 'fields' => 'slugs' ) );
-    if(in_array('e-edition', $cats)){
+    if(in_array('e-edition', $cats) || in_array('e-paper', $cats)){
         get_template_part( 'template-parts/single', 'edition', $args = [] );
-    }
-    $legacy_premium_options = get_option('bday_legacy_premium');
-    $legacy_premium_enabled = isset($legacy_premium_options['legacy_premium_enabled']) && $legacy_premium_options['legacy_premium_enabled'] == '1';
+    } else {
+        $legacy_premium_options = get_option('bday_legacy_premium');
+        $legacy_premium_enabled = isset($legacy_premium_options['legacy_premium_enabled']) && $legacy_premium_options['legacy_premium_enabled'] == '1';
 
-    if(in_array('pro', $cats) && $legacy_premium_enabled){
-        get_template_part( 'template-parts/single', 'pro', $args = [] );
-    }
-    else{
-        get_template_part( 'template-parts/single', 'default', $args = [] );
+        if(in_array('pro', $cats) && $legacy_premium_enabled){
+            get_template_part( 'template-parts/single', 'pro', $args = [] );
+        }
+        else{
+            get_template_part( 'template-parts/single', 'default', $args = [] );
+        }
     }
 
 ?>

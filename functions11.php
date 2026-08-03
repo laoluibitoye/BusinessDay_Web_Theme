@@ -521,8 +521,6 @@ add_action('admin_menu', 'remove_default_custom_fields');
 
 /**
  * =========================================================================
- * BEGIN: FT AUTOMATED ALERT SYSTEM INSERTION
- * =========================================================================
  * FLUENTCRM REMOTE REST GATEWAY & SUBSCRIPTION MANAGER
  * =========================================================================
  */
@@ -596,15 +594,16 @@ class FluentCRM_Remote_Manager {
     public function get_cached_lists() {
         $lists = get_transient($this->lists_cache_key);
         if (false === $lists) {
-            $response = $this->remote_api_request('lists', 'GET');
-            if (!is_wp_error($response) && isset($response['lists']['data'])) {
-                $lists = $response['lists']['data'];
-                // Cache for 5 minutes to auto-update and remove deleted lists
-                set_transient($this->lists_cache_key, $lists, 5 * MINUTE_IN_SECONDS);
-                update_option('fc_remote_stored_lists', $lists);
-            } else {
-                // Fallback to stale data if the API is temporarily unreachable
-                $lists = get_option('fc_remote_stored_lists', []);
+            $lists = get_option('fc_remote_stored_lists', []);
+            if (empty($lists)) {
+                $response = $this->remote_api_request('lists', 'GET');
+                if (!is_wp_error($response) && isset($response['lists']['data'])) {
+                    $lists = $response['lists']['data'];
+                    set_transient($this->lists_cache_key, $lists, DAY_IN_SECONDS);
+                    update_option('fc_remote_stored_lists', $lists);
+                } else {
+                    $lists = [];
+                }
             }
         }
         return $lists;
@@ -722,34 +721,6 @@ class FluentCRM_Remote_Manager {
                             </label>
                         </td>
                     </tr>
-                    <tr>
-                        <th scope="row"><label>Automated Alert Delivery Mode</label></th>
-                        <td>
-                            <select name="<?php echo esc_attr($this->settings_key); ?>[alert_delivery_mode]" class="regular-text">
-                                <option value="instant" <?php selected($this->get_setting('alert_delivery_mode', 'instant'), 'instant'); ?>>Instantly (On Publish)</option>
-                                <option value="digest" <?php selected($this->get_setting('alert_delivery_mode', 'instant'), 'digest'); ?>>Daily Digest (Once a day)</option>
-                                <option value="both" <?php selected($this->get_setting('alert_delivery_mode', 'instant'), 'both'); ?>>Both Instant and Digest</option>
-                            </select>
-                            <p class="description">Select how automated emails for published articles are dispatched.</p>
-                        </td>
-                    </tr>
-                    
-                    <?php if (!empty($all_lists)): ?>
-                    <tr>
-                        <th scope="row"><label>Global Broadcast Target List (bdlead / bdrecent)</label></th>
-                        <td>
-                            <select name="<?php echo esc_attr($this->settings_key); ?>[global_broadcast_list]" class="regular-text">
-                                <option value="">-- Do Not Broadcast --</option>
-                                <?php foreach ($all_lists as $list): ?>
-                                    <option value="<?php echo esc_attr($list['id']); ?>" <?php selected($this->get_setting('global_broadcast_list'), $list['id']); ?>>
-                                        <?php echo esc_html($list['title']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="description">Select the master Newsletter list that will receive alerts when an article is published with the <code>bdlead</code> or <code>bdrecent</code> tags (ignoring category mappings).</p>
-                        </td>
-                    </tr>
-                    <?php endif; ?>
 
                     <?php if (!empty($this->get_setting('remote_url'))): ?>
                     <tr>
@@ -781,7 +752,7 @@ class FluentCRM_Remote_Manager {
                                         </div>
                                     <?php endforeach; ?>
                                 </fieldset>
-                                <p class="description"><a href="<?php echo esc_url(add_query_arg('refresh_remote_lists', '1')); ?>" class="button button-secondary">Ã°Å¸â€â€ž Sync structure manually from remote CRM</a></p>
+                                <p class="description"><a href="<?php echo esc_url(add_query_arg('refresh_remote_lists', '1')); ?>" class="button button-secondary">🔄 Sync structure manually from remote CRM</a></p>
                             <?php else: ?>
                                 <p class="description" style="color: red;">No lists returned. Double check credentials.</p>
                             <?php endif; ?>
@@ -951,7 +922,7 @@ class FluentCRM_Remote_Manager {
                             <?php endif; ?>
                             <div class="fc-read-next-details">
                                 <h4 class="fc-read-next-title"><?php echo esc_html(get_the_title($next_post->ID)); ?></h4>
-                                <span class="fc-read-next-meta">By <?php echo get_the_author_meta('display_name', $next_post->post_author); ?> Ã¢â‚¬Â¢ <?php echo get_the_date('', $next_post->ID); ?></span>
+                                <span class="fc-read-next-meta">By <?php echo get_the_author_meta('display_name', $next_post->post_author); ?> • <?php echo get_the_date('', $next_post->ID); ?></span>
                             </div>
                         </a>
                     <?php else: ?>
@@ -995,11 +966,6 @@ class FluentCRM_Remote_Manager {
     }
 }
 FluentCRM_Remote_Manager::get_instance();
-/**
- * =========================================================================
- * END: FT AUTOMATED ALERT SYSTEM INSERTION
- * =========================================================================
- */
 
 /** Custom Code Start **/
 
@@ -1108,7 +1074,7 @@ add_filter('wp_nav_menu_objects', 'bd_custom_menu_visibility', 10, 2);
 add_action('wp_head', 'mq_hide_page_titles');
 
 function mq_hide_page_titles() {
-    // FIX (2026-07-17): skip single posts Ã¢â‚¬â€ articles render their headline as
+    // FIX (2026-07-17): skip single posts — articles render their headline as
     // h1.post-title too (see template-parts/single-default.php / single-pro.php),
     // and this rule was only meant to hide the redundant page title on the WP
     // Page template (page.php) wrapping the Magnaquest login/sign-up/reset
@@ -1131,7 +1097,7 @@ function mq_hide_page_titles() {
 /**
  * ADDED (2026-07-17): Hide the WordPress admin toolbar on the front end for
  * subscriber/customer accounts. These are the auto-created WP users behind
- * Magnaquest login/registration Ã¢â‚¬â€ they should get the normal reader
+ * Magnaquest login/registration — they should get the normal reader
  * experience, not the wp-admin toolbar. Implemented as a hardcoded staff
  * allowlist (same role slugs confirmed for the mq_custom_authenticate login
  * fix in functions/magnaquest-api.php) rather than a subscriber/customer
@@ -1148,10 +1114,10 @@ function bd_hide_admin_bar_for_non_staff($show) {
     $staff_roles = ['administrator', 'editor', 'author', 'wpseo_manager', 'bddraft', 'bdeditor', 'wpseo_editor'];
 
     if (array_intersect($staff_roles, (array) $user->roles)) {
-        return $show; // Staff Ã¢â‚¬â€ leave the toolbar behavior as WordPress normally decides
+        return $show; // Staff — leave the toolbar behavior as WordPress normally decides
     }
 
-    return false; // Everyone else (subscriber, customer, etc.) Ã¢â‚¬â€ no toolbar
+    return false; // Everyone else (subscriber, customer, etc.) — no toolbar
 }
 
 /** Magnaquest code end **/
@@ -1185,7 +1151,7 @@ function bd_sync_selfcare_jwt_localstorage() {
 add_action('wp_footer', 'bd_sync_selfcare_jwt_localstorage');
 
 /**
- * Direct logout handler Ã¢â‚¬â€ bypasses WordPress's built-in logout confirmation page.
+ * Direct logout handler — bypasses WordPress's built-in logout confirmation page.
  * Triggered via a nonce-signed custom URL generated in header.php.
  */
 function bd_direct_logout_handler() {
@@ -1242,8 +1208,8 @@ function mq_custom_logout_sync() {
 
     /* Configuration */
 
-    $RedirectUrl       = 'https://stg18326.businessday.ng/';
-    $selfcareOrigin    = 'https://businessdaytest-selfcare.magnaquest.com';
+    $RedirectUrl       = 'https://businessday.ng/';
+    $selfcareOrigin    = 'https://businessday-selfcare.magnaquest.com';
     $HiddenIframeUrl   = $selfcareOrigin . '/#/account/mySubscription';
 
     //WordPress logout URL
@@ -1285,7 +1251,7 @@ document.addEventListener("click", function(e){
     document.body.appendChild(iframe);
 
     // FIX (2026-07-17): the logout button previously did nothing when clicked
-    // if the selfcare iframe below never sent back "LOGOUT_COMPLETE" Ã¢â‚¬â€ there
+    // if the selfcare iframe below never sent back "LOGOUT_COMPLETE" — there
     // was no timeout/fallback, so a slow or unresponsive selfcare portal left
     // the user stuck. `logoutFinished` + `fallbackTimer` below guarantee the
     // real WordPress logout (finishLogout) always fires within ~6s either way.
@@ -1326,7 +1292,7 @@ document.addEventListener("click", function(e){
 
     // Fallback: if the selfcare iframe never responds (down, blocked, or
     // simply doesn't implement this handshake on this route), don't leave
-    // the user stuck on a logout button that does nothing Ã¢â‚¬â€ log them out
+    // the user stuck on a logout button that does nothing — log them out
     // of WordPress anyway after a few seconds.
     const fallbackTimer = setTimeout(function(){
         console.log("Selfcare logout handshake timed out, logging out anyway");
@@ -1454,7 +1420,7 @@ add_filter( 'wp_mail', function ( $args ) {
 	}
 
 	$invite_key = $m[1];
-	$new_url    = 'https://stg18326.businessday.ng/sign-up/?invite_key=' . rawurlencode( $invite_key );
+	$new_url    = 'https://businessday.ng/sign-up/?invite_key=' . rawurlencode( $invite_key );
 
 	$args['message'] = preg_replace(
 		'#https?://\S+?lp_group_invite_key=[^\s<>"]+#',
@@ -1465,7 +1431,7 @@ add_filter( 'wp_mail', function ( $args ) {
 	return $args;
 }, 10 );
 
-// ADDED (2026-07-18): World Cup Prediction AJAX Handler Ã¢â‚¬â€ powers the
+// ADDED (2026-07-18): World Cup Prediction AJAX Handler — powers the
 // bracket-predictor submission form on templates/page-worldcup.php.
 add_action('wp_ajax_wc_submit_prediction', 'wc_submit_prediction_handler');
 add_action('wp_ajax_nopriv_wc_submit_prediction', 'wc_submit_prediction_handler');
@@ -1499,4 +1465,16 @@ function wc_submit_prediction_handler() {
     wp_send_json_success('Prediction saved successfully!');
 }
 
+/**
+ * Performance optimization for database sitemap queries
+ */
+// 1. Disable native WordPress core sitemaps to prevent double-crawling
+add_filter( 'wp_sitemaps_enabled', '__return_false' );
 
+// 2. Cache Yoast SEO sitemaps to prevent database hits on every request
+add_filter( 'wpseo_enable_xml_sitemap_transient_caching', '__return_true' );
+
+// 3. Limit sitemap entries to reduce database query work per page
+add_filter( 'wpseo_sitemap_entries_per_page', function() {
+    return 100;
+} );

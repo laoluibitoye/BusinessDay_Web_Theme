@@ -341,6 +341,7 @@
                      block below with a live World Cup 2026 promo block (tag:
                      2026-fifa-world-cup), re-themed black-on-gray instead of white-on-red,
                      plus a Terrific widget embed. -->
+<?php if ( false ) : ?>
 <div class="col-lg-12 mb-4">
     <div class="col-lg-12 pro-section" style="background-color: #E7E7E7;">
         <?php
@@ -398,6 +399,7 @@
         ?>
     </div>
 </div>
+<?php endif; ?>
               <!--Terrific-->
 <div data-source="terrific" embedding-id="NTWXkg1ovwVf9kwd8DPf" class="container"></div>
 
@@ -713,7 +715,7 @@
 </div>
 
 <!-- Video Widget -->
-<?php echo do_shortcode('[new_homepage_video_widget posts=8]'); ?>
+<!--<?php echo do_shortcode('[new_homepage_video_widget posts=8]'); ?>-->
 
 <div class="container">
     <?php

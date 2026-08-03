@@ -1,7 +1,68 @@
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
+<?php
+// Determine if programmatic ads should be shown
+$show_programmatic_ads = true;
+
+// 1. Hide ads on Login, Subscribe, and Magnaquest form pages
+if ( is_page_template('magnaquest.php') || is_page(array('login', 'subscribe', 'register', 'my-account')) ) {
+    $show_programmatic_ads = false;
+} 
+// 2. Hide ads for ACTIVE PREMIUM subscribers (Block Free Registration)
+elseif ( is_user_logged_in() ) {
+    $user_id = get_current_user_id();
+    
+    $is_active_premium = false;
+    $status = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_payment_status', true));
+    $level_id = get_user_meta($user_id, '_issuem_leaky_paywall_live_level_id', true);
+    $description = strtolower(get_user_meta($user_id, '_issuem_leaky_paywall_live_description', true));
+    $expires = get_user_meta($user_id, '_issuem_leaky_paywall_live_expires', true);
+
+    if ( $status === 'active' && $level_id != '4' && strpos($description, 'free') === false ) {
+        if ( empty($expires) || strtotime($expires) > time() ) {
+            $is_active_premium = true;
+        }
+    }
+
+    if ( $is_active_premium ) {
+        $show_programmatic_ads = false;
+    }
+}
+?>
 
 <head>
+    <?php if ( ! $show_programmatic_ads ) : ?>
+    <!-- DEBUG: PROGRAMMATIC ADS DISABLED FOR SUBSCRIBER -->
+    <style>
+        /* Forcefully hide programmatic ad containers for subscribers (Google, AdSense Auto Ads, Dochase, Adsolut) */
+        div[id^="div-gpt-ad-"],
+        div[id^="google_ads_"],
+        iframe[id^="google_ads_iframe_"],
+        iframe[name^="google_ads_iframe"],
+        ins.adsbygoogle,
+        [class*="adsolut"],
+        [id*="adsolut"],
+        .adsolut-player,
+        .adsolut-container,
+        .OUTBRAIN,
+        [id^="taboola-"] {
+            display: none !important;
+            height: 0 !important;
+            width: 0 !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            position: absolute !important;
+            z-index: -9999 !important;
+        }
+    </style>
+    <script>
+        // Tell any custom scripts that ads are disabled
+        window.DISABLE_PROGRAMMATIC_ADS = true;
+    </script>
+    <?php else: ?>
+    <!-- DEBUG: PROGRAMMATIC ADS ENABLED -->
+    <?php endif; ?>
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -382,7 +443,9 @@
       from this block now fire unconditionally on every environment,
       staging included.
     -->
+    <?php if ( $show_programmatic_ads ) : ?>
             <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js" crossorigin="anonymous"></script>
+    <?php endif; ?>
 <script>
 window.googletag = window.googletag || { cmd: [] };
 googletag.cmd.push(function () {
@@ -978,7 +1041,9 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
         }
     </style>
 
+    <?php if ( $show_programmatic_ads ) : ?>
     <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+    <?php endif; ?>
 
     <div class="d-none d-md-block">
         <script>

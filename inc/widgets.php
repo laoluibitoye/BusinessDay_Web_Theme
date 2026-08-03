@@ -360,7 +360,7 @@ function homepage_magazine_widget($atts){
                                     <?php echo get_thumbnail(['post_id'=>$post->ID, 'size'=>'pdf_thumbnail']); ?>
                                 </a>
                             </figure>
-                            <a href="<?php echo get_the_permalink( $post->ID ); ?>" class="link-btn"> View </a>
+                            <a href="<?php echo get_category_link(get_category_by_slug('reports')); ?>" class="link-btn"> See Past Editions </a>
                         </article>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -373,7 +373,7 @@ function homepage_magazine_widget($atts){
                                     <?php echo get_thumbnail(['post_id'=>$post->ID, 'size'=>'pdf_thumbnail']); ?>
                                 </a>
                             </figure>
-                            <a href="<?php echo get_category_link(get_category_by_slug('womens-hub')); ?>" class="link-btn"> See Past Editions </a>
+                            <a href="<?php echo get_category_link(get_category_by_slug('weekender')); ?>" class="link-btn"> See Past Editions </a>
                         </article>
                     <?php endforeach; ?>
                 <?php endif; ?>
