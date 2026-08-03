@@ -14,6 +14,14 @@ if (!is_user_logged_in()) {
     wp_redirect($loginUrl);
     exit;
 }
+
+// Group members have no Magnaquest record and no self-care subscription to manage here --
+// per the group-accounts spec they should never reach this page. See handle_group_signup()
+// in functions/magnaquest-api.php for where _bd_is_group_member gets set.
+if (get_user_meta(get_current_user_id(), '_bd_is_group_member', true)) {
+    wp_redirect(home_url('/'));
+    exit;
+}
 ?>
 
 <div style="width:100%; height:100vh; overflow:hidden;">
