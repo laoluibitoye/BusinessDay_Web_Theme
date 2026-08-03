@@ -175,6 +175,13 @@ function mq_api_request($api_url, $payload, $require_operator_headers = false) {
         $headers['userName'] = MQ_API_OPERATOR_USER;
         $headers['password'] = MQ_API_OPERATOR_PASS;
         error_log('Magnaquest API Request: Appending administrative Operator headers from wp-config.php');
+    } elseif ($require_operator_headers) {
+        // DIAGNOSTIC: operator headers were requested but MQ_API_OPERATOR_USER/PASS aren't
+        // defined (they must live in wp-config.php on the server, not this repo) -- the
+        // request goes out with no operator credentials at all. Added while investigating
+        // why bd_get_subscription_status_by_email()'s FindAppuser/GetCustomerDetails calls
+        // may be silently failing.
+        error_log('Magnaquest API Request: Operator headers requested but MQ_API_OPERATOR_USER/MQ_API_OPERATOR_PASS are not defined -- request sent without them.');
     }
 
     error_log('Magnaquest Request URL: ' . $full_url);
@@ -1350,6 +1357,15 @@ function handle_group_login() {
     $user = get_user_by('email', $email);
     if (!$user || !wp_check_password($password, $user->user_pass, $user->ID)) {
         wp_send_json_error(['message' => 'Invalid email or password.']);
+    }
+
+    // BUGFIX: this tab is for group members only -- any WP account (including regular
+    // Magnaquest subscribers) could previously log in here, which is wrong since Group
+    // Login is meant to be a separate, WordPress/Leaky-Paywall-only path. Only accounts
+    // flagged by handle_group_signup() below may use it; everyone else is pointed at
+    // Member Login instead.
+    if (!get_user_meta($user->ID, '_bd_is_group_member', true)) {
+        wp_send_json_error(['message' => 'This account is not a group member. Please use Member Login instead.']);
     }
 
     wp_clear_auth_cookie();
