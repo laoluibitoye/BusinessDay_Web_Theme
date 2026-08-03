@@ -1227,3 +1227,99 @@ function handle_mq_restore_session() {
     wp_send_json_success(['message' => 'Session restored.']);
 }
 
+/**
+ * Email-based subscription fallback check.
+ *
+ * bd_sync_user_subscription_from_magnaquest() (above) reads a "customerNo" field directly off
+ * the top level of the decoded JWT payload, while handle_mq_restore_session() (also above)
+ * decodes the *same* token's identity fields from a nested "userinfo" JSON sub-string. If
+ * customerNo actually lives inside that nested blob rather than at the top level, the sync
+ * function silently no-ops for every user, and gating falls back to local Leaky Paywall
+ * usermeta that a Magnaquest-only subscriber never had populated -- shown up as active
+ * subscribers still seeing the paywall on the e-paper.
+ *
+ * Per instruction, bd_sync_user_subscription_from_magnaquest() and handle_mq_restore_session()
+ * above are left untouched. This is a wholly independent, additive check: it looks the
+ * customer up by their WordPress account email via FindAppuserByLogintypeAndLoginName (the
+ * same endpoint handle_mq_confirm_reset_password() already uses successfully, with
+ * operator-level credentials -- no per-user JWT/session required), then feeds the resulting
+ * user_id into GetCustomerDetails using operator headers instead of a per-user Bearer token.
+ *
+ * UNVERIFIED ASSUMPTION (needs a real staging test): that GetCustomerDetails accepts
+ * operator-header auth the same way FindAppuser/Register/SelfcareResetPassword do, and that
+ * the "user_id" FindAppuser returns is accepted as "customerNo" by GetCustomerDetails. Fails
+ * safe -- any mismatch just logs and returns false, never grants access it can't confirm.
+ *
+ * @param string $email WordPress account email to look up.
+ * @return bool True if Magnaquest confirms an active subscription for this email.
+ */
+function bd_get_subscription_status_by_email($email) {
+    if (empty($email) || !is_email($email)) {
+        return false;
+    }
+
+    $user = get_user_by('email', $email);
+    if (!$user) {
+        return false;
+    }
+
+    // 12h cache, same pattern as bd_sync_user_subscription_from_magnaquest(), but stored
+    // under its own meta keys so it never collides with that function's writes.
+    $last_checked = get_user_meta($user->ID, '_bd_email_verified_last_checked', true);
+    if (!empty($last_checked) && (time() - $last_checked) < 43200) {
+        return get_user_meta($user->ID, '_bd_email_verified_sub_status', true) === 'active';
+    }
+
+    $find_payload = [
+        'findAppUserByLoginOptions' => [
+            'loginName' => $email,
+            'loginType' => 'E'
+        ]
+    ];
+
+    $find_response = mq_api_request(MQ_API_FIND_APPUSER_URL, $find_payload, true);
+
+    if (is_wp_error($find_response) || $find_response['status_code'] != 200) {
+        error_log('bd_get_subscription_status_by_email: FindAppuser request failed for ' . $email);
+        return false;
+    }
+
+    $find_body = $find_response['body'];
+    if (!isset($find_body['status']['errorNo']) || $find_body['status']['errorNo'] != 0) {
+        error_log('bd_get_subscription_status_by_email: FindAppuser returned an error for ' . $email);
+        return false;
+    }
+
+    $customer_no = $find_body['data']['userInfo']['user_id'] ?? '';
+    if (empty($customer_no)) {
+        error_log('bd_get_subscription_status_by_email: no user_id returned for ' . $email);
+        return false;
+    }
+
+    if (!defined('MQ_API_GET_CUSTOMER_DETAILS_URL')) {
+        define('MQ_API_GET_CUSTOMER_DETAILS_URL', bd_get_env_url('checkout_origin') . '/WebApi/Restapi/GetCustomerDetails');
+    }
+
+    $details_response = mq_api_request(MQ_API_GET_CUSTOMER_DETAILS_URL, ['customerNo' => $customer_no], true);
+
+    if (is_wp_error($details_response) || $details_response['status_code'] != 200) {
+        error_log('bd_get_subscription_status_by_email: GetCustomerDetails request failed for ' . $email);
+        return false;
+    }
+
+    $details_body = $details_response['body'];
+    $error_no = $details_body['status']['errorNo'] ?? -1;
+    if ($error_no !== 0 || empty($details_body['data']['subscriptionInfo'])) {
+        error_log('bd_get_subscription_status_by_email: GetCustomerDetails returned no subscriptionInfo for ' . $email);
+        return false;
+    }
+
+    $sub_status = strtolower($details_body['data']['subscriptionInfo']['subscriptionStatus'] ?? '');
+    $is_active = $sub_status === 'active';
+
+    update_user_meta($user->ID, '_bd_email_verified_sub_status', $is_active ? 'active' : 'inactive');
+    update_user_meta($user->ID, '_bd_email_verified_last_checked', time());
+
+    return $is_active;
+}
+

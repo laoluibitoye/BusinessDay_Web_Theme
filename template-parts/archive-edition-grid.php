@@ -120,6 +120,12 @@ foreach ($categories_to_show as $slug => $label) {
      $has_sub = false;
      if ( $is_logged_in ) {
          $has_sub = bd_user_has_active_subscription( get_current_user_id() );
+         // Fallback: bd_user_has_active_subscription() can miss genuine subscribers whose
+         // local metadata was never synced (see functions/magnaquest-api.php for why). This
+         // independent, email-based check only ever ADDS access, never revokes it.
+         if ( ! $has_sub ) {
+             $has_sub = bd_get_subscription_status_by_email( wp_get_current_user()->user_email );
+         }
      }
 
      if ( $is_logged_in && $has_sub ) :
