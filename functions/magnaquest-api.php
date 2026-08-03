@@ -1323,3 +1323,151 @@ function bd_get_subscription_status_by_email($email) {
     return $is_active;
 }
 
+/**
+ * Handle Group Login AJAX.
+ *
+ * Group members exist only in WordPress + Leaky Paywall -- Magnaquest never has a record
+ * of them. This deliberately does NOT use wp_signon()/wp_authenticate(), because
+ * mq_custom_authenticate() above is hooked to the global "authenticate" filter and would
+ * force this login through the Magnaquest API too, which is exactly what the Group Login
+ * flow must avoid. Instead this authenticates manually (wp_check_password +
+ * wp_set_auth_cookie), the same low-level approach handle_mq_login() above uses, just
+ * without any Magnaquest call at all.
+ */
+add_action('wp_ajax_mq_group_login', 'handle_group_login');
+add_action('wp_ajax_nopriv_mq_group_login', 'handle_group_login');
+
+function handle_group_login() {
+    check_ajax_referer('mq_auth_nonce', 'security');
+
+    $email = sanitize_email($_POST['group_login_username'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if (empty($email) || empty($password)) {
+        wp_send_json_error(['message' => 'Email and password are required.']);
+    }
+
+    $user = get_user_by('email', $email);
+    if (!$user || !wp_check_password($password, $user->user_pass, $user->ID)) {
+        wp_send_json_error(['message' => 'Invalid email or password.']);
+    }
+
+    wp_clear_auth_cookie();
+    wp_set_current_user($user->ID);
+    wp_set_auth_cookie($user->ID, true);
+    update_user_caches($user);
+
+    wp_send_json_success([
+        'message'  => 'Login successful',
+        'redirect' => home_url('/'),
+    ]);
+}
+
+/**
+ * Handle Group Signup AJAX.
+ *
+ * Finalizes a group member invite: creates (or authenticates an existing) WordPress
+ * user for the invited email, then calls Leaky Paywall's group-member finalize API.
+ * Access/paid status is only granted if that finalize call succeeds -- on any failure
+ * this logs the error and returns a validation message without creating a session or
+ * marking the account as an active group member. No Magnaquest API is called anywhere
+ * in this flow (see bd_fetch_group_invite() in functions.php and
+ * bd_get_lpw_basic_auth_header() for the shared Leaky Paywall REST plumbing this reuses).
+ */
+add_action('wp_ajax_handle_group_signup', 'handle_group_signup');
+add_action('wp_ajax_nopriv_handle_group_signup', 'handle_group_signup');
+
+function handle_group_signup() {
+    check_ajax_referer('mq_auth_nonce', 'security');
+
+    $invite_key = sanitize_text_field($_POST['invite_key'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if (empty($invite_key) || empty($password)) {
+        wp_send_json_error(['message' => 'Invite key and password are required.']);
+    }
+
+    // Re-validate the invite server-side -- never trust client-submitted email/group_id alone.
+    $invite = bd_fetch_group_invite($invite_key);
+    if (empty($invite['success']) || ($invite['status'] ?? '') !== 'pending') {
+        error_log('handle_group_signup: invite lookup failed or not pending for key ' . $invite_key);
+        wp_send_json_error(['message' => 'This invite link is invalid or has already been used.']);
+    }
+
+    $email = sanitize_email($invite['email']);
+    $group_id = $invite['group_id'];
+    $first_name = sanitize_text_field($invite['first_name']);
+    $last_name = sanitize_text_field($invite['last_name']);
+
+    if (empty($email) || empty($group_id)) {
+        error_log('handle_group_signup: invite response missing email/group_id for key ' . $invite_key);
+        wp_send_json_error(['message' => 'This invite link is invalid.']);
+    }
+
+    $user = get_user_by('email', $email);
+
+    if ($user) {
+        // Existing account -- this is the "log in with the fixed email" branch of the flow.
+        if (!wp_check_password($password, $user->user_pass, $user->ID)) {
+            wp_send_json_error(['message' => 'Incorrect password for this account.']);
+        }
+    } else {
+        // New account -- this is the "create your password" branch of the flow.
+        $new_user_id = wp_create_user($email, $password, $email);
+        if (is_wp_error($new_user_id)) {
+            error_log('handle_group_signup: wp_create_user failed for ' . $email . ': ' . $new_user_id->get_error_message());
+            wp_send_json_error(['message' => 'Unable to create your account. Please try again.']);
+        }
+        $user = get_userdata($new_user_id);
+        $user->set_role('subscriber');
+        wp_update_user([
+            'ID'         => $new_user_id,
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+            'display_name' => trim($first_name . ' ' . $last_name),
+        ]);
+    }
+
+    // Finalize: only after this succeeds does the member get paid access.
+    $finalize_url = home_url('/wp-json/leaky-paywall/v1/groups/' . rawurlencode($group_id) . '/members');
+    $finalize_response = wp_remote_post($finalize_url, [
+        'headers' => [
+            'Authorization' => bd_get_lpw_basic_auth_header(),
+            'Content-Type'  => 'application/json',
+        ],
+        'body'    => wp_json_encode([
+            'email'      => $email,
+            'invite_key' => $invite_key,
+        ]),
+        'timeout' => 20,
+    ]);
+
+    if (is_wp_error($finalize_response)) {
+        error_log('handle_group_signup: finalize request failed for ' . $email . ': ' . $finalize_response->get_error_message());
+        wp_send_json_error(['message' => 'Unable to activate your group membership right now. Please try again shortly.']);
+    }
+
+    $finalize_status = wp_remote_retrieve_response_code($finalize_response);
+    $finalize_body = json_decode(wp_remote_retrieve_body($finalize_response), true);
+
+    if ($finalize_status < 200 || $finalize_status >= 300) {
+        error_log('handle_group_signup: finalize API returned ' . $finalize_status . ' for ' . $email . ': ' . wp_remote_retrieve_body($finalize_response));
+        wp_send_json_error(['message' => $finalize_body['message'] ?? 'Unable to activate your group membership. Please contact your group owner.']);
+    }
+
+    // Success -- mark as a group member (see header.php / my-account.php / register.php /
+    // functions.php's bd_custom_menu_visibility() for where this flag hides My Account/Subscribe),
+    // then log them in directly (same manual-cookie approach as handle_group_login() above).
+    update_user_meta($user->ID, '_bd_is_group_member', '1');
+
+    wp_clear_auth_cookie();
+    wp_set_current_user($user->ID);
+    wp_set_auth_cookie($user->ID, true);
+    update_user_caches($user);
+
+    wp_send_json_success([
+        'message'  => 'Your group membership is now active.',
+        'redirect' => home_url('/'),
+    ]);
+}
+
