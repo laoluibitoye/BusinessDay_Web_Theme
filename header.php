@@ -4,10 +4,17 @@
 // Determine if programmatic ads should be shown
 $show_programmatic_ads = true;
 
-// 1. Hide ads on Login, Subscribe, and Magnaquest form pages
-if ( is_page_template('magnaquest.php') || is_page(array('login', 'subscribe', 'register', 'my-account')) ) {
+// 0. Disable all programmatic ad networks whenever the active Theme Environment
+// (Settings -> Theme Environment) is Staging -- ad networks should only ever serve
+// impressions on the live/production environment. See bd_get_theme_environment()
+// in functions/magnaquest-api.php.
+if ( bd_get_theme_environment() !== 'live' ) {
     $show_programmatic_ads = false;
-} 
+}
+// 1. Hide ads on Login, Subscribe, and Magnaquest form pages
+elseif ( is_page_template('magnaquest.php') || is_page(array('login', 'subscribe', 'register', 'my-account')) ) {
+    $show_programmatic_ads = false;
+}
 // 2. Hide ads for ACTIVE PREMIUM subscribers (Block Free Registration)
 elseif ( is_user_logged_in() ) {
     $user_id = get_current_user_id();
