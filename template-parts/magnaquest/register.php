@@ -45,43 +45,49 @@ const subscribeURLS = {
     checkoutOrigin: "<?php echo esc_js($checkoutOrigin); ?>"
 };
 
-window.addEventListener("load", function () {
-    const iframe = document.getElementById("mqIframe");
-    const token = localStorage.getItem("selfcareJWT");
+// FIX: this used to arm the iframe's own "load" listener from inside window's
+// "load" event -- but the browser fires the iframe's "load" before (or as part
+// of) the parent window's "load", so that listener was almost always attached
+// too late to ever fire, silently cutting the intended 6-attempt staggered
+// retry down to ~2 blind attempts. This <script> tag runs synchronously right
+// after the iframe element above is parsed into the DOM, so attaching here
+// -- instead of waiting for window "load" -- reliably arrives before the
+// iframe's own "load" event fires.
+const iframe = document.getElementById("mqIframe");
+const token = localStorage.getItem("selfcareJWT");
 
-    console.log("Iframe:", iframe);
-    console.log("JWT:", token);
+console.log("Iframe:", iframe);
+console.log("JWT:", token);
 
-    function sendToken() {
-        if (!token || !iframe || !iframe.contentWindow) return;
-        try {
-            iframe.contentWindow.postMessage(
-                {
-                    type: "SET_JWT",
-                    token: token
-                },
-                subscribeURLS.selfcareOrigin
-            );
-            console.log("JWT sent to iframe");
-        } catch (e) {
-            console.error("Failed to send token:", e);
-        }
+function sendToken() {
+    if (!token || !iframe || !iframe.contentWindow) return;
+    try {
+        iframe.contentWindow.postMessage(
+            {
+                type: "SET_JWT",
+                token: token
+            },
+            subscribeURLS.selfcareOrigin
+        );
+        console.log("JWT sent to iframe");
+    } catch (e) {
+        console.error("Failed to send token:", e);
     }
+}
 
-    // Progressive transmission on load to capture the iframe as soon as its scripts mount
-    iframe.addEventListener("load", function() {
-        sendToken();
-        setTimeout(sendToken, 200);
-        setTimeout(sendToken, 500);
-        setTimeout(sendToken, 1000);
-        setTimeout(sendToken, 2000);
-        setTimeout(sendToken, 3000);
-    });
-
-    // Immediate attempt in case load has already occurred
+// Progressive transmission on load to capture the iframe as soon as its scripts mount
+iframe.addEventListener("load", function() {
     sendToken();
+    setTimeout(sendToken, 200);
     setTimeout(sendToken, 500);
+    setTimeout(sendToken, 1000);
+    setTimeout(sendToken, 2000);
+    setTimeout(sendToken, 3000);
 });
+
+// Immediate attempt in case load has already occurred synchronously
+sendToken();
+setTimeout(sendToken, 500);
 
 
 /* Listen for messages from iframe */
