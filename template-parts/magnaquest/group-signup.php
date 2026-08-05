@@ -1,13 +1,14 @@
 <?php
 /**
- * Group Member Signup / Login page.
+ * Group Member Signup page.
  *
  * Opened from a Leaky Paywall group-invite email (see the wp_mail filter in functions.php
  * that rewrites lp_group_invite_key links to /group-signup/?invite_key=...). The email is
- * prefilled from the invite and locked; the same form handles both "create your password"
- * (new WordPress account) and "log in" (account already exists) since the server
- * (handle_group_signup() in functions/magnaquest-api.php) determines which case applies.
- * This never calls any Magnaquest API -- see that function's docblock for why.
+ * prefilled from the invite and locked. The submitted password is always set on whichever
+ * WordPress account Leaky Paywall's finalize call resolves the invite to (see the REWRITE
+ * note in handle_group_signup()'s docblock, functions/magnaquest-api.php, for why this no
+ * longer branches on "new account" vs "log in"). This never calls any Magnaquest API -- see
+ * that function's docblock for why.
  */
 ?>
 <style>
@@ -111,7 +112,7 @@
 
 <div class="mq-auth-container">
     <h2 class="mq-auth-title">Activate Your Group Membership</h2>
-    <p class="mq-auth-subtitle">Enter a password to finish setting up your account, or your existing password if you already have one.</p>
+    <p class="mq-auth-subtitle">Create a password to activate your group membership.</p>
 
     <div id="mq-group-signup-alert" class="mq-alert"></div>
 
@@ -124,6 +125,11 @@
         <div class="mq-form-group">
             <label class="mq-form-label" for="password">Password</label>
             <input type="password" id="password" name="password" class="mq-form-input" required placeholder="••••••••">
+        </div>
+
+        <div class="mq-form-group">
+            <label class="mq-form-label" for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" class="mq-form-input" placeholder="+234...">
         </div>
 
         <input type="hidden" name="action" value="handle_group_signup">

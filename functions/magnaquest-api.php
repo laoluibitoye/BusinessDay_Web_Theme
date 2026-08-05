@@ -1382,13 +1382,26 @@ function handle_group_login() {
 /**
  * Handle Group Signup AJAX.
  *
- * Finalizes a group member invite: creates (or authenticates an existing) WordPress
- * user for the invited email, then calls Leaky Paywall's group-member finalize API.
- * Access/paid status is only granted if that finalize call succeeds -- on any failure
- * this logs the error and returns a validation message without creating a session or
- * marking the account as an active group member. No Magnaquest API is called anywhere
- * in this flow (see bd_fetch_group_invite() in functions.php and
- * bd_get_lpw_basic_auth_header() for the shared Leaky Paywall REST plumbing this reuses).
+ * Calls Leaky Paywall's group-member finalize API first, then sets the member's chosen
+ * password directly on the WordPress user_id the finalize response hands back. Access/paid
+ * status is only granted if the finalize call succeeds -- on any failure this logs the error
+ * and returns a validation message without creating a session or marking the account as an
+ * active group member. No Magnaquest API is called anywhere in this flow (see
+ * bd_fetch_group_invite() in functions.php and bd_get_lpw_basic_auth_header() for the shared
+ * Leaky Paywall REST plumbing this reuses).
+ *
+ * REWRITE (per Leaky Paywall Group Accounts v1.7.3 integration guide): previously this
+ * decided "new member" vs. "returning member" by checking get_user_by('email') *before*
+ * calling finalize, and rejected the submitted password against any existing account's
+ * password hash. That was wrong -- Leaky Paywall creates a "pending" WordPress user for the
+ * invited email the moment the group owner sends the invite, so a WP account already exists
+ * for every invite, genuinely-new members included. Checking an "existing" password made
+ * every real signup fail with "Incorrect password for this account." The finalize endpoint's
+ * request body is just {email, invite_key} (no password) and its response includes
+ * added_member.user_id + is_new_user -- Leaky Paywall itself owns creating/reusing the WP
+ * user, so the fix is to call finalize first and then set the password on whatever user_id
+ * comes back, regardless of is_new_user. See the plan at
+ * /Users/Laolu/.claude/plans/glowing-watching-crane.md for the full writeup.
  */
 add_action('wp_ajax_handle_group_signup', 'handle_group_signup');
 add_action('wp_ajax_nopriv_handle_group_signup', 'handle_group_signup');
@@ -1398,12 +1411,14 @@ function handle_group_signup() {
 
     $invite_key = sanitize_text_field($_POST['invite_key'] ?? '');
     $password = $_POST['password'] ?? '';
+    $phone = sanitize_text_field($_POST['phone'] ?? '');
 
     if (empty($invite_key) || empty($password)) {
         wp_send_json_error(['message' => 'Invite key and password are required.']);
     }
 
     // Re-validate the invite server-side -- never trust client-submitted email/group_id alone.
+    // Also gives a fast, clear error before we bother calling finalize.
     $invite = bd_fetch_group_invite($invite_key);
     if (empty($invite['success']) || ($invite['status'] ?? '') !== 'pending') {
         error_log('handle_group_signup: invite lookup failed or not pending for key ' . $invite_key);
@@ -1420,31 +1435,38 @@ function handle_group_signup() {
         wp_send_json_error(['message' => 'This invite link is invalid.']);
     }
 
-    $user = get_user_by('email', $email);
+    /* SUPERSEDED (see REWRITE note in this function's docblock) -- do not re-enable. Leaky
+     * Paywall pre-creates a "pending" WP user at invite-send time, so get_user_by() below
+     * always found an account (even for brand-new members) and wp_check_password() rejected
+     * every password they typed, since they'd never set one through any path we controlled.
+     *
+     * $user = get_user_by('email', $email);
+     *
+     * if ($user) {
+     *     // Existing account -- this is the "log in with the fixed email" branch of the flow.
+     *     if (!wp_check_password($password, $user->user_pass, $user->ID)) {
+     *         wp_send_json_error(['message' => 'Incorrect password for this account.']);
+     *     }
+     * } else {
+     *     // New account -- this is the "create your password" branch of the flow.
+     *     $new_user_id = wp_create_user($email, $password, $email);
+     *     if (is_wp_error($new_user_id)) {
+     *         error_log('handle_group_signup: wp_create_user failed for ' . $email . ': ' . $new_user_id->get_error_message());
+     *         wp_send_json_error(['message' => 'Unable to create your account. Please try again.']);
+     *     }
+     *     $user = get_userdata($new_user_id);
+     *     $user->set_role('subscriber');
+     *     wp_update_user([
+     *         'ID'         => $new_user_id,
+     *         'first_name' => $first_name,
+     *         'last_name'  => $last_name,
+     *         'display_name' => trim($first_name . ' ' . $last_name),
+     *     ]);
+     * }
+     */
 
-    if ($user) {
-        // Existing account -- this is the "log in with the fixed email" branch of the flow.
-        if (!wp_check_password($password, $user->user_pass, $user->ID)) {
-            wp_send_json_error(['message' => 'Incorrect password for this account.']);
-        }
-    } else {
-        // New account -- this is the "create your password" branch of the flow.
-        $new_user_id = wp_create_user($email, $password, $email);
-        if (is_wp_error($new_user_id)) {
-            error_log('handle_group_signup: wp_create_user failed for ' . $email . ': ' . $new_user_id->get_error_message());
-            wp_send_json_error(['message' => 'Unable to create your account. Please try again.']);
-        }
-        $user = get_userdata($new_user_id);
-        $user->set_role('subscriber');
-        wp_update_user([
-            'ID'         => $new_user_id,
-            'first_name' => $first_name,
-            'last_name'  => $last_name,
-            'display_name' => trim($first_name . ' ' . $last_name),
-        ]);
-    }
-
-    // Finalize: only after this succeeds does the member get paid access.
+    // Finalize FIRST -- only after this succeeds does the member get paid access, and it's
+    // Leaky Paywall (not us) that creates/reuses the WordPress user for this email.
     $finalize_url = home_url('/wp-json/leaky-paywall/v1/groups/' . rawurlencode($group_id) . '/members');
     $finalize_response = wp_remote_post($finalize_url, [
         'headers' => [
@@ -1471,7 +1493,35 @@ function handle_group_signup() {
         wp_send_json_error(['message' => $finalize_body['message'] ?? 'Unable to activate your group membership. Please contact your group owner.']);
     }
 
-    // Success -- mark as a group member (see header.php / my-account.php / register.php /
+    $user_id = $finalize_body['added_member']['user_id'] ?? null;
+    $user = $user_id ? get_userdata($user_id) : false;
+
+    if (!$user) {
+        error_log('handle_group_signup: finalize succeeded but added_member.user_id did not resolve to a user for ' . $email . ': ' . wp_remote_retrieve_body($finalize_response));
+        wp_send_json_error(['message' => 'Your group membership was activated, but we could not finish setting up your account. Please contact your group owner.']);
+    }
+
+    // Set the member's chosen password directly on the account Leaky Paywall just
+    // created/reused -- no "old password" check, since this is always their first time
+    // setting it through a path we control (see REWRITE note above).
+    wp_set_password($password, $user->ID);
+    $user = get_userdata($user->ID); // wp_set_password() invalidates the cached user object.
+
+    // Group members should always end up 'subscriber' regardless of whether Leaky Paywall's
+    // finalize call created a brand-new account or reused an existing pending one.
+    $user->set_role('subscriber');
+    wp_update_user([
+        'ID'           => $user->ID,
+        'first_name'   => $first_name,
+        'last_name'    => $last_name,
+        'display_name' => trim($first_name . ' ' . $last_name),
+    ]);
+
+    if (!empty($phone)) {
+        update_user_meta($user->ID, '_bd_phone_number', $phone);
+    }
+
+    // Mark as a group member (see header.php / my-account.php / register.php /
     // functions.php's bd_custom_menu_visibility() for where this flag hides My Account/Subscribe),
     // then log them in directly (same manual-cookie approach as handle_group_login() above).
     update_user_meta($user->ID, '_bd_is_group_member', '1');
