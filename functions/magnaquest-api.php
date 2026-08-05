@@ -773,6 +773,56 @@ function handle_mq_confirm_reset_password() {
  */
 add_action('wp_ajax_mq_change_password', 'handle_mq_change_password');
 
+/**
+ * Change Password for group members (WordPress + Leaky Paywall only, no Magnaquest
+ * record). handle_mq_change_password() above always calls the Magnaquest ChangePassword
+ * API, which fails with "no such user exists" for these accounts since Magnaquest has
+ * never heard of them -- change-password.php now points group members at this handler
+ * instead. Same local-only wp_check_password()/wp_set_password() pattern already used by
+ * handle_group_login() and the finalize step of handle_group_signup() above. Group owners
+ * (Magnaquest-backed) are unaffected and keep using handle_mq_change_password() as before.
+ */
+add_action('wp_ajax_group_change_password', 'handle_group_change_password');
+
+function handle_group_change_password() {
+    check_ajax_referer('mq_auth_nonce', 'security');
+
+    if (!is_user_logged_in()) {
+        wp_send_json_error(['message' => 'You must be logged in to change your password.']);
+    }
+
+    $current_user = wp_get_current_user();
+
+    if (!get_user_meta($current_user->ID, '_bd_is_group_member', true)) {
+        wp_send_json_error(['message' => 'This account is not a group member. Please use the standard change password form instead.']);
+    }
+
+    $old_password = $_POST['old_password'] ?? '';
+    $new_password = $_POST['new_password'] ?? '';
+
+    if (empty($old_password) || empty($new_password)) {
+        wp_send_json_error(['message' => 'Both old and new passwords are required.']);
+    }
+
+    if (!wp_check_password($old_password, $current_user->user_pass, $current_user->ID)) {
+        wp_send_json_error(['message' => 'Current password is incorrect.']);
+    }
+
+    wp_set_password($new_password, $current_user->ID);
+
+    // wp_set_password() invalidates the current session -- re-authenticate immediately
+    // so the member isn't logged out (same approach handle_mq_change_password() uses above).
+    wp_clear_auth_cookie();
+    wp_set_current_user($current_user->ID);
+    wp_set_auth_cookie($current_user->ID, true);
+    update_user_caches($current_user);
+
+    wp_send_json_success([
+        'message'  => 'Password changed successfully.',
+        'redirect' => home_url('/'),
+    ]);
+}
+
 function handle_mq_change_password() {
     ob_start();
     check_ajax_referer('mq_auth_nonce', 'security');

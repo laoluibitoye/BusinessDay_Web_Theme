@@ -1,6 +1,11 @@
 <?php
 /**
- * Magnaquest Change Password Form (For logged-in users)
+ * Change Password Form (For logged-in users)
+ *
+ * Shared by both group owners (Magnaquest-backed) and group members (WordPress +
+ * Leaky Paywall only) -- the form/UI is identical, only the AJAX action it posts to
+ * differs, since group members have no Magnaquest record for handle_mq_change_password()
+ * to update. See handle_group_change_password() in functions/magnaquest-api.php.
  */
 
 // If user is not logged in, redirect them to login
@@ -8,6 +13,9 @@ if (!is_user_logged_in()) {
     wp_redirect(home_url('/login'));
     exit;
 }
+
+$is_group_member = get_user_meta(get_current_user_id(), '_bd_is_group_member', true);
+$change_password_action = $is_group_member ? 'group_change_password' : 'mq_change_password';
 ?>
 <style>
 .mq-auth-container {
@@ -188,7 +196,7 @@ if (!is_user_logged_in()) {
             </div>
         </div>
         
-        <input type="hidden" name="action" value="mq_change_password">
+        <input type="hidden" name="action" value="<?php echo esc_attr($change_password_action); ?>">
         <input type="hidden" name="security" value="<?php echo wp_create_nonce('mq_auth_nonce'); ?>">
         
         <button type="submit" class="mq-submit-btn" id="mq-change-btn">Update Password</button>
@@ -256,7 +264,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 alertBox.innerHTML = data.data.message;
                 changeForm.reset();
                 setTimeout(() => {
-                    window.location.href = '/my-account';
+                    // group_change_password (functions/magnaquest-api.php) returns a "redirect"
+                    // field pointing group members home instead of /my-account, which they
+                    // have no access to (see the guard in my-account.php).
+                    window.location.href = data.data.redirect || '/my-account';
                 }, 2000);
             } else {
                 alertBox.className = 'mq-alert error';
