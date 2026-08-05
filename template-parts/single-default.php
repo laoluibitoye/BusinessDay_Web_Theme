@@ -46,6 +46,9 @@
                     <!-- <p class="author-name"><a href="<?= get_author_posts_url(get_the_author_meta('ID', get_post_field('post_author', get_the_ID()))) ?>"> <?= $author_name ?> </a></p> -->
                     <p class="author-name"> <?= the_author_posts_link() ?> </p>
                     <p class="post-date"><?php the_date(); ?></p>
+                    <a href="https://news.google.com/publications/CAAqKQgKIiNDQklTRkFnTWFoQUtEbUoxYzJsdVpYTnpaR0Y1TG01bktBQVAB?hl=en-NG&gl=NG&ceid=NG%3Aen" target="_blank" rel="noopener noreferrer" style="display: inline-block; vertical-align: middle; margin-left: 12px;">
+                        <img src="<?php echo get_template_directory_uri(); ?>/assets/images/google-news.png" alt="Follow on Google News" style="height: 30px; width: auto; display: block; border-radius: 4px;">
+                    </a>
                 </div>
                 <article>
                     <?php
@@ -65,16 +68,25 @@
                         ?>
                     <?php } ?>
 
+                    <div class="google-badges-container" style="margin: 15px 0 20px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                        <a href="https://www.google.com/preferences/source?q=businessday.ng" target="_blank" rel="noopener noreferrer">
+                            <img src="<?php echo get_template_directory_uri(); ?>/assets/images/google-preferred-source.jpg" alt="Add as a preferred source on Google" style="height: 38px; width: auto; border-radius: 6px; display: block;">
+                        </a>
+                        <a href="https://news.google.com/publications/CAAqKQgKIiNDQklTRkFnTWFoQUtEbUoxYzJsdVpYTnpaR0Y1TG01bktBQVAB?hl=en-NG&gl=NG&ceid=NG%3Aen" target="_blank" rel="noopener noreferrer">
+                            <img src="<?php echo get_template_directory_uri(); ?>/assets/images/google-news.png" alt="Follow on Google News" style="height: 38px; width: auto; border-radius: 6px; display: block;">
+                        </a>
+                    </div>
+
                     <?= get_social_share_icons() ?>
 
                     <div class="post-content">
 
                         <!--To ensure accurate tracking it is essential that you replace [CACHEBUSTER] in the tag below with a random number or timestamp.-->
 
-                        <iframe src="https://servedby.flashtalking.com/imp/7/249648;8674159;201;jsiframe;BusinessDayNetwork;ZohoBusinessdayNG300x250/?ft_custom=&imageType=gif&ftDestID=39713871&ft_width=300&ft_height=250&click=&ftOBA=1&ftExpTrack=&gdpr=${GDPR}&gdpr_consent=${GDPR_CONSENT_78}&cachebuster=[BDAY]" allowFullScreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" topmargin="0" leftmargin="0" allowtransparency="true" width="300" height="250">
+                      <!--  <iframe src="https://servedby.flashtalking.com/imp/7/249648;8674159;201;jsiframe;BusinessDayNetwork;ZohoBusinessdayNG300x250/?ft_custom=&imageType=gif&ftDestID=39713871&ft_width=300&ft_height=250&click=&ftOBA=1&ftExpTrack=&gdpr=${GDPR}&gdpr_consent=${GDPR_CONSENT_78}&cachebuster=[BDAY]" allowFullScreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" topmargin="0" leftmargin="0" allowtransparency="true" width="300" height="250">
                         <a href="https://servedby.flashtalking.com/click/7/249648;8674159;0;209;0/?gdpr=${GDPR}&gdpr_consent=${GDPR_CONSENT_78}&ft_width=300&ft_height=250&url=39713871" target="_blank">
                         <img border="0" src="https://servedby.flashtalking.com/imp/7/249648;8674159;205;gif;BusinessDayNetwork;ZohoBusinessdayNG300x250/?gdpr=${GDPR}&gdpr_consent=${GDPR_CONSENT_78}"></a>
-                        </iframe>
+                        </iframe>-->
                         <!--To ensure accurate tracking it is essential that you replace [CACHEBUSTER] in the tag below with a random number or timestamp.-->
 
                         <!--Dochase Start-->
@@ -115,7 +127,18 @@
                         }
                         add_filter('the_content', 'insert_read_also');
                         the_content();                            
-                            
+                        ?>
+
+                        <div class="google-badges-container" style="margin: 20px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                            <a href="https://www.google.com/preferences/source?q=businessday.ng" target="_blank" rel="noopener noreferrer">
+                                <img src="<?php echo get_template_directory_uri(); ?>/assets/images/google-preferred-source.jpg" alt="Add as a preferred source on Google" style="height: 38px; width: auto; border-radius: 6px; display: block;">
+                            </a>
+                            <a href="https://news.google.com/publications/CAAqKQgKIiNDQklTRkFnTWFoQUtEbUoxYzJsdVpYTnpaR0Y1TG01bktBQVAB?hl=en-NG&gl=NG&ceid=NG%3Aen" target="_blank" rel="noopener noreferrer">
+                                <img src="<?php echo get_template_directory_uri(); ?>/assets/images/google-news.png" alt="Follow on Google News" style="height: 38px; width: auto; border-radius: 6px; display: block;">
+                            </a>
+                        </div>
+
+                        <?php
                         $author_detials = get_the_author_meta("description", get_post_field("post_author", $post->ID));
                             
                         if ($author_detials != ""):
@@ -246,6 +269,7 @@
                 if (is_active_sidebar('page_sidebar')) {
                     dynamic_sidebar('page_sidebar');
                 }
+                get_template_part('template-parts/sidebar', 'google-news');
                 ?>
                 <div class="top-sticky">
                     <?= do_shortcode('[admanager ad_id="sidebar_1" placement="desktop" lazy="false"]'); ?>

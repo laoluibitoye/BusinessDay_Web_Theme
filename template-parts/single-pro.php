@@ -164,6 +164,7 @@
                 if (is_active_sidebar('page_sidebar')) {
                     dynamic_sidebar('page_sidebar');
                 }
+                get_template_part('template-parts/sidebar', 'google-news');
                 ?>
                 <div class="top-sticky">
                     <?= do_shortcode('[admanager ad_id="sidebar_1" placement="desktop" lazy="false"]'); ?>

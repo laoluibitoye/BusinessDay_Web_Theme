@@ -1,5 +1,11 @@
 <?php
 
+if ( ! function_exists( 'amp_is_request' ) ) {
+    function amp_is_request() {
+        return false;
+    }
+}
+
 require('functions/bootstrap_walker.php');
 require('functions/features.php');
 require('functions/optimizations.php');
@@ -248,7 +254,14 @@ function custom_get_posts( array $args = array() ): array {
 		return $posts;
 	}
 
-	return array();
+	// Fallback: If tag or category_name filter returned empty array, query latest posts so section is not blank.
+	$fallback_args = $args;
+	unset( $fallback_args['tag'] );
+	unset( $fallback_args['category_name'] );
+	unset( $fallback_args['cat'] );
+	$fallback_posts = get_posts( $fallback_args );
+
+	return ! empty( $fallback_posts ) ? $fallback_posts : array();
 }
 
 
