@@ -532,6 +532,7 @@ add_action('admin_menu', 'remove_default_custom_fields');
  * FLUENTCRM REMOTE REST GATEWAY & SUBSCRIPTION MANAGER
  * =========================================================================
  */
+if (!class_exists('FluentCRM_Remote_Manager')) {
 class FluentCRM_Remote_Manager {
     
     private static $instance = null;
@@ -1012,7 +1013,7 @@ class FluentCRM_Remote_Manager {
                 $posts_data = [];
                 foreach ($recent_posts as $post) {
                     $posts_data[] = [
-                        'title'   => $post->post_title,
+                        'title'   => get_the_title($post->ID),
                         'url'     => get_the_permalink($post->ID),
                         'excerpt' => get_the_excerpt($post)
                     ];
@@ -1043,11 +1044,13 @@ class FluentCRM_Remote_Manager {
                 }
 
                 $post = $recent_posts[0];
-                $title = esc_html($post['post_title']);
-                $url = esc_url(get_permalink($post['ID']));
+                $post_id = is_array($post) ? $post['ID'] : $post->ID;
+                $post_title = is_array($post) ? $post['post_title'] : $post->post_title;
+                $title = esc_html($post_title);
+                $url = esc_url(get_permalink($post_id));
 
-                $excerpt = get_the_excerpt($post['ID']);
-                if (empty($excerpt)) {
+                $excerpt = get_the_excerpt($post_id);
+                if (empty($excerpt) && is_array($post) && isset($post['post_content'])) {
                     $excerpt = wp_trim_words($post['post_content'], 30);
                 }
                 $excerpt = esc_html($excerpt);
@@ -1107,7 +1110,7 @@ class FluentCRM_Remote_Manager {
                 $posts_data = [];
                 foreach ($recent_posts as $post) {
                     $posts_data[] = [
-                        'title'   => $post->post_title,
+                        'title'   => get_the_title($post->ID),
                         'url'     => get_the_permalink($post->ID),
                         'excerpt' => get_the_excerpt($post)
                     ];
@@ -1146,11 +1149,13 @@ class FluentCRM_Remote_Manager {
                 }
 
                 $post = $recent_posts[0];
-                $title = esc_html($post['post_title']);
-                $url = esc_url(get_permalink($post['ID']));
+                $post_id = is_array($post) ? $post['ID'] : $post->ID;
+                $post_title = is_array($post) ? $post['post_title'] : $post->post_title;
+                $title = esc_html($post_title);
+                $url = esc_url(get_permalink($post_id));
 
-                $excerpt = get_the_excerpt($post['ID']);
-                if (empty($excerpt)) {
+                $excerpt = get_the_excerpt($post_id);
+                if (empty($excerpt) && is_array($post) && isset($post['post_content'])) {
                     $excerpt = wp_trim_words($post['post_content'], 30);
                 }
                 $excerpt = esc_html($excerpt);
@@ -1340,6 +1345,10 @@ class FluentCRM_Remote_Manager {
             return;
         }
 
+        if (!$post || !is_object($post) || !isset($post->post_type) || $post->post_type !== 'post') {
+            return;
+        }
+
         if (!has_tag(['bdlead', 'bdrecent'], $post->ID)) {
             return;
         }
@@ -1371,11 +1380,16 @@ class FluentCRM_Remote_Manager {
         $target_list_ids = array_unique($target_list_ids);
         if (empty($target_list_ids)) return;
 
+        $excerpt = get_the_excerpt($post);
+        if (empty($excerpt) && isset($post->post_content)) {
+            $excerpt = wp_trim_words($post->post_content, 30);
+        }
+
         $payload = [
             'post_id' => $post->ID,
-            'title'   => $post->post_title,
+            'title'   => get_the_title($post->ID),
             'url'     => get_the_permalink($post->ID),
-            'excerpt' => get_the_excerpt($post->ID),
+            'excerpt' => $excerpt,
             'lists'   => $target_list_ids,
             'type'    => 'instant'
         ];
@@ -1414,7 +1428,7 @@ class FluentCRM_Remote_Manager {
         $posts_data = [];
         foreach ($recent_posts as $post) {
             $posts_data[] = [
-                'title'   => $post->post_title,
+                'title'   => get_the_title($post->ID),
                 'url'     => get_the_permalink($post->ID),
                 'excerpt' => get_the_excerpt($post)
             ];
@@ -1429,6 +1443,7 @@ class FluentCRM_Remote_Manager {
     }
 }
 FluentCRM_Remote_Manager::get_instance();
+}
 /**
  * =========================================================================
  * END: FT AUTOMATED ALERT SYSTEM INSERTION
