@@ -555,8 +555,143 @@ class FluentCRM_Remote_Manager {
         add_filter('the_content', [$this, 'append_contextual_newsletter_box']);
         
         // FT Automated Alert System Integrations
+        add_action('add_meta_boxes', [$this, 'add_alert_meta_box']);
+        add_action('wp_ajax_fc_manual_push_alert', [$this, 'handle_ajax_manual_push_alert']);
         add_action('transition_post_status', [$this, 'handle_post_published'], 10, 3);
         add_action('fc_remote_daily_digest_cron', [$this, 'handle_daily_digest_cron']);
+
+    public function add_alert_meta_box() {
+        add_meta_box(
+            'ft_alert_dispatch_box',
+            'FT Automated Alert Dispatch',
+            [$this, 'render_alert_meta_box'],
+            'post',
+            'side',
+            'high'
+        );
+    }
+
+    public function render_alert_meta_box($post) {
+        $sent_at = get_post_meta($post->ID, '_ft_instant_alert_sent', true);
+        ?>
+        <div style="padding: 5px 0;">
+            <p style="margin-top: 0; font-size: 13px;">
+                <strong>Status:</strong> 
+                <?php if (!empty($sent_at)): ?>
+                    <span style="color: green;">✓ Sent on <?php echo esc_html($sent_at); ?></span>
+                <?php else: ?>
+                    <span style="color: #666;">Not sent yet</span>
+                <?php endif; ?>
+            </p>
+            <button id="fc-meta-push-btn" data-post-id="<?php echo esc_attr($post->ID); ?>" class="button button-primary" style="width: 100%; margin-top: 5px;">
+                🚀 Push Instant Alert Now
+            </button>
+            <div id="fc-meta-push-result" style="margin-top: 8px; font-weight: 600; font-size: 12px;"></div>
+            <script>
+            (function() {
+                var btn = document.getElementById('fc-meta-push-btn');
+                if (!btn) return;
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (!confirm('Are you sure you want to push an Instant Alert for this post to subscribers?')) return;
+                    var result = document.getElementById('fc-meta-push-result');
+                    btn.disabled = true;
+                    btn.textContent = 'Pushing Alert...';
+                    result.textContent = '';
+                    
+                    fetch(ajaxurl, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: new URLSearchParams({
+                            action: 'fc_manual_push_alert',
+                            nonce: '<?php echo wp_create_nonce('fc_manual_push_alert'); ?>',
+                            post_id: btn.getAttribute('data-post-id')
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            result.style.color = 'green';
+                            result.textContent = '✓ ' + data.data.message;
+                        } else {
+                            result.style.color = 'red';
+                            result.textContent = '✗ ' + (data.data ? data.data.message : 'Push failed.');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = '🚀 Push Instant Alert Now';
+                    })
+                    .catch(function() {
+                        result.style.color = 'red';
+                        result.textContent = '✗ Network error.';
+                        btn.disabled = false;
+                        btn.textContent = '🚀 Push Instant Alert Now';
+                    });
+                });
+            })();
+            </script>
+        </div>
+        <?php
+    }
+
+    public function handle_ajax_manual_push_alert() {
+        check_ajax_referer('fc_manual_push_alert', 'nonce');
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => 'Unauthorized.']);
+        }
+
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+        if (!$post_id) {
+            wp_send_json_error(['message' => 'Invalid Post ID.']);
+        }
+
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error(['message' => 'Post not found.']);
+        }
+
+        $excerpt = get_the_excerpt($post_id);
+        if (empty($excerpt) && !empty($post->post_content)) {
+            $excerpt = wp_trim_words($post->post_content, 30);
+        }
+
+        $categories = get_the_category($post_id);
+        $saved_mappings = $this->get_setting('category_mappings', []);
+        $visible_lists = $this->get_setting('visible_lists', []);
+        $target_list_ids = [];
+
+        if (!empty($categories)) {
+            foreach ($categories as $cat) {
+                $cat_id = intval($cat->term_id);
+                if (!empty($saved_mappings[$cat_id])) {
+                    $mapped_list_id = intval($saved_mappings[$cat_id]);
+                    if (in_array($mapped_list_id, $visible_lists)) {
+                        $target_list_ids[] = $mapped_list_id;
+                    }
+                }
+            }
+        }
+        if (empty($target_list_ids)) {
+            $target_list_ids = array_map('intval', $visible_lists);
+        }
+
+        $payload = [
+            'post_id' => $post_id,
+            'title'   => get_the_title($post_id),
+            'url'     => get_the_permalink($post_id),
+            'excerpt' => esc_html($excerpt),
+            'lists'   => array_unique($target_list_ids),
+            'type'    => 'instant'
+        ];
+
+        $response = $this->remote_api_request('send-alert', 'POST', $payload);
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => 'Remote CRM error: ' . $response->get_error_message()]);
+        }
+
+        update_post_meta($post_id, '_ft_instant_alert_sent', current_time('mysql'));
+        wp_send_json_success(['message' => 'Instant alert successfully pushed to subscribers!']);
+    }
         
         // Ensure cron is scheduled based on settings
         if (!wp_next_scheduled('fc_remote_daily_digest_cron')) {
@@ -1378,7 +1513,9 @@ class FluentCRM_Remote_Manager {
         }
 
         $target_list_ids = array_unique($target_list_ids);
-        if (empty($target_list_ids)) return;
+        if (empty($target_list_ids)) {
+            $target_list_ids = array_map('intval', $visible_lists);
+        }
 
         $excerpt = get_the_excerpt($post);
         if (empty($excerpt) && isset($post->post_content)) {
@@ -1396,6 +1533,7 @@ class FluentCRM_Remote_Manager {
 
         // Fire-and-forget to remote CRM
         $this->remote_api_request('send-alert', 'POST', $payload);
+        update_post_meta($post->ID, '_ft_instant_alert_sent', current_time('mysql'));
     }
 
     /**
