@@ -1,0 +1,21 @@
+/*
+ * Theme Name: BusinessDayNG Refresh
+ * Theme URI: https://businessday.ng
+ * Author: BusinessDay Technologies
+ * Author URI: https://businessday.ng
+ * Description: A premium, high-density editorial theme crafted specifically for BusinessDay Nigeria. Designed to deliver a state-of-the-art news reading experience, this theme integrates dynamic layouts, advanced typography, and optimal performance for modern digital publishing. Lead Developer: Laolu Ibitoye. Contributors: Nduka Asoh, Ifeanyi Udebu.
+ * Version: 3.1
+ * License: GNU General Public License v2 or later
+ * License URI: http://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: businessday
+ * Tags: editorial, news, magazine, high-density, premium, modern-publishing, customizable, news-portal
+ *
+ * Changelog:
+ * 2.9: Added the 'Legacy Premium Redirect' WordPress Dashboard settings page. Allows turning on/off the premium redirection category template routing and setting a global fallback URL for premium posts if their per-post PRO URL is empty.
+ * 2.4: Clean base theme upgrade.
+ * 2.3: Reverted navigation arrows to header and optimized z-index to prevent header overlap during scroll.
+ * 2.2: Redesigned News Carousel navigation with floating side arrows and drag-to-scroll support.
+ * 2.1: Added infinite loop navigation, active column highlighting (red border), elevation shadow effects, and layout spacing refinements to the News Carousel.
+ * 2.0: Modernized News Carousel with native CSS scroll-snap, autoscroll speed controls, and interactive pagination dots.
+ */
+
