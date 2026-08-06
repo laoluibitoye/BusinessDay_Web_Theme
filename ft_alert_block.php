@@ -6,8 +6,11 @@
  * FLUENTCRM REMOTE REST GATEWAY & SUBSCRIPTION MANAGER
  * =========================================================================
  */
-if (!class_exists('FluentCRM_Remote_Manager')) {
-
+// FIX: file was missing its opening <?php tag, so everything before the
+// first inline "<?php settings_fields(...)" call further down was being
+// emitted as literal HTML instead of parsed as PHP -- the class was never
+// actually defined and FluentCRM_Remote_Manager::get_instance() at the
+// bottom of the file would have fataled with "Class not found".
 class FluentCRM_Remote_Manager {
     
     private static $instance = null;
@@ -26,15 +29,12 @@ class FluentCRM_Remote_Manager {
         add_action('admin_init', [$this, 'register_plugin_settings']);
         add_action('wp_ajax_submit_onboarding_form', [$this, 'handle_form_submission']);
         add_action('wp_ajax_nopriv_submit_onboarding_form', [$this, 'handle_form_submission']);
-        add_action('wp_ajax_fc_send_test_alert', [$this, 'handle_ajax_send_test_alert']);
         add_filter('the_content', [$this, 'append_contextual_newsletter_box']);
         
         // FT Automated Alert System Integrations
-        add_action('add_meta_boxes', [$this, 'add_alert_meta_box']);
-        add_action('wp_ajax_fc_manual_push_alert', [$this, 'handle_ajax_manual_push_alert']);
         add_action('transition_post_status', [$this, 'handle_post_published'], 10, 3);
         add_action('fc_remote_daily_digest_cron', [$this, 'handle_daily_digest_cron']);
-
+        
         // Ensure cron is scheduled based on settings
         if (!wp_next_scheduled('fc_remote_daily_digest_cron')) {
             $digest_time = $this->get_setting('alert_digest_time', '18:00');
@@ -44,139 +44,6 @@ class FluentCRM_Remote_Manager {
             }
             wp_schedule_event($timestamp, 'daily', 'fc_remote_daily_digest_cron');
         }
-    }
-
-    public function add_alert_meta_box() {
-        add_meta_box(
-            'ft_alert_dispatch_box',
-            'FT Automated Alert Dispatch',
-            [$this, 'render_alert_meta_box'],
-            'post',
-            'side',
-            'high'
-        );
-    }
-
-    public function render_alert_meta_box($post) {
-        $sent_at = get_post_meta($post->ID, '_ft_instant_alert_sent', true);
-        ?>
-        <div style="padding: 5px 0;">
-            <p style="margin-top: 0; font-size: 13px;">
-                <strong>Status:</strong> 
-                <?php if (!empty($sent_at)): ?>
-                    <span style="color: green;">✓ Sent on <?php echo esc_html($sent_at); ?></span>
-                <?php else: ?>
-                    <span style="color: #666;">Not sent yet</span>
-                <?php endif; ?>
-            </p>
-            <button id="fc-meta-push-btn" data-post-id="<?php echo esc_attr($post->ID); ?>" class="button button-primary" style="width: 100%; margin-top: 5px;">
-                🚀 Push Instant Alert Now
-            </button>
-            <div id="fc-meta-push-result" style="margin-top: 8px; font-weight: 600; font-size: 12px;"></div>
-            <script>
-            (function() {
-                var btn = document.getElementById('fc-meta-push-btn');
-                if (!btn) return;
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    if (!confirm('Are you sure you want to push an Instant Alert for this post to subscribers?')) return;
-                    var result = document.getElementById('fc-meta-push-result');
-                    btn.disabled = true;
-                    btn.textContent = 'Pushing Alert...';
-                    result.textContent = '';
-                    
-                    fetch(ajaxurl, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: new URLSearchParams({
-                            action: 'fc_manual_push_alert',
-                            nonce: '<?php echo wp_create_nonce('fc_manual_push_alert'); ?>',
-                            post_id: btn.getAttribute('data-post-id')
-                        })
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            result.style.color = 'green';
-                            result.textContent = '✓ ' + data.data.message;
-                        } else {
-                            result.style.color = 'red';
-                            result.textContent = '✗ ' + (data.data ? data.data.message : 'Push failed.');
-                        }
-                        btn.disabled = false;
-                        btn.textContent = '🚀 Push Instant Alert Now';
-                    })
-                    .catch(function() {
-                        result.style.color = 'red';
-                        result.textContent = '✗ Network error.';
-                        btn.disabled = false;
-                        btn.textContent = '🚀 Push Instant Alert Now';
-                    });
-                });
-            })();
-            </script>
-        </div>
-        <?php
-    }
-
-    public function handle_ajax_manual_push_alert() {
-        check_ajax_referer('fc_manual_push_alert', 'nonce');
-        if (!current_user_can('edit_posts')) {
-            wp_send_json_error(['message' => 'Unauthorized.']);
-        }
-
-        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
-        if (!$post_id) {
-            wp_send_json_error(['message' => 'Invalid Post ID.']);
-        }
-
-        $post = get_post($post_id);
-        if (!$post) {
-            wp_send_json_error(['message' => 'Post not found.']);
-        }
-
-        $excerpt = get_the_excerpt($post_id);
-        if (empty($excerpt) && !empty($post->post_content)) {
-            $excerpt = wp_trim_words($post->post_content, 30);
-        }
-
-        $categories = get_the_category($post_id);
-        $saved_mappings = $this->get_setting('category_mappings', []);
-        $visible_lists = $this->get_setting('visible_lists', []);
-        $target_list_ids = [];
-
-        if (!empty($categories)) {
-            foreach ($categories as $cat) {
-                $cat_id = intval($cat->term_id);
-                if (!empty($saved_mappings[$cat_id])) {
-                    $mapped_list_id = intval($saved_mappings[$cat_id]);
-                    if (in_array($mapped_list_id, $visible_lists)) {
-                        $target_list_ids[] = $mapped_list_id;
-                    }
-                }
-            }
-        }
-        if (empty($target_list_ids)) {
-            $target_list_ids = array_map('intval', $visible_lists);
-        }
-
-        $payload = [
-            'post_id' => $post_id,
-            'title'   => get_the_title($post_id),
-            'url'     => get_the_permalink($post_id),
-            'excerpt' => esc_html($excerpt),
-            'lists'   => array_unique($target_list_ids),
-            'type'    => 'instant'
-        ];
-
-        $response = $this->remote_api_request('send-alert', 'POST', $payload);
-
-        if (is_wp_error($response)) {
-            wp_send_json_error(['message' => 'Remote CRM error: ' . $response->get_error_message()]);
-        }
-
-        update_post_meta($post_id, '_ft_instant_alert_sent', current_time('mysql'));
-        wp_send_json_success(['message' => 'Instant alert successfully pushed to subscribers!']);
     }
 
     public function get_setting($key, $default = '') {
@@ -269,8 +136,7 @@ class FluentCRM_Remote_Manager {
         $output['enable_exit_intent'] = isset($input['enable_exit_intent']) ? '1' : '0';
         
         $output['alert_delivery_mode'] = isset($input['alert_delivery_mode']) ? sanitize_text_field($input['alert_delivery_mode']) : 'instant';
-        $output['alert_digest_time'] = isset($input['alert_digest_time']) ? sanitize_text_field($input['alert_digest_time']) : '18:00';
-        $output['test_alert_email'] = isset($input['test_alert_email']) ? sanitize_text_field($input['test_alert_email']) : 'frank@businessday.ng';
+        $output['alert_digest_time'] = isset($input['alert_digest_time']) ? sanitize_text_field($input['alert_digest_time']) : '08:00';
         
         $output['list_snippets'] = [];
         if (isset($input['list_snippets']) && is_array($input['list_snippets'])) {
@@ -365,8 +231,8 @@ class FluentCRM_Remote_Manager {
                         <td>
                             <select name="<?php echo esc_attr($this->settings_key); ?>[alert_delivery_mode]" class="regular-text">
                                 <option value="instant" <?php selected($this->get_setting('alert_delivery_mode', 'instant'), 'instant'); ?>>Instant (On Publish)</option>
-                                <option value="digest" <?php selected($this->get_setting('alert_delivery_mode', 'digest'), 'digest'); ?>>Daily Digest</option>
-                                <option value="both" <?php selected($this->get_setting('alert_delivery_mode', 'both'), 'both'); ?>>Both (Instant & Digest)</option>
+                                <option value="digest" <?php selected($this->get_setting('alert_delivery_mode', 'instant'), 'digest'); ?>>Daily Digest</option>
+                                <option value="both" <?php selected($this->get_setting('alert_delivery_mode', 'instant'), 'both'); ?>>Both (Instant & Digest)</option>
                             </select>
                             <p class="description">Select how automated emails for published articles are dispatched to mapped CRM lists.</p>
                         </td>
@@ -377,15 +243,7 @@ class FluentCRM_Remote_Manager {
                         <td>
                             <label style="display: block; margin-bottom: 5px;"><strong>Daily Digest Time:</strong></label>
                             <input type="time" name="<?php echo esc_attr($this->settings_key); ?>[alert_digest_time]" value="<?php echo esc_attr($this->get_setting('alert_digest_time', '18:00')); ?>" class="regular-text">
-                            <p class="description">Time to send the daily digest (Server Time). Default is 18:00 (6:00 PM).</p>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row"><label>Test Alert Emails</label></th>
-                        <td>
-                            <textarea name="<?php echo esc_attr($this->settings_key); ?>[test_alert_email]" rows="4" class="large-text" placeholder="frank@businessday.ng, editor@businessday.ng"><?php echo esc_textarea($this->get_setting('test_alert_email', 'frank@businessday.ng')); ?></textarea>
-                            <p class="description">Enter one or more email addresses separated by commas. These receive the test alert when you click <strong>Send Test Alert</strong>.</p>
+                            <p class="description">If 'Daily Digest' or 'Both' is selected, digests will be scheduled to send at this time (Server Time).</p>
                         </td>
                     </tr>
 
@@ -419,7 +277,7 @@ class FluentCRM_Remote_Manager {
                                         </div>
                                     <?php endforeach; ?>
                                 </fieldset>
-                                <p class="description"><a href="<?php echo esc_url(add_query_arg('refresh_remote_lists', '1')); ?>" class="button button-secondary">🔄 Sync structure manually from remote CRM</a></p>
+                                <p class="description"><a href="<?php echo esc_url(add_query_arg('refresh_remote_lists', '1')); ?>" class="button button-secondary">ðŸ”„ Sync structure manually from remote CRM</a></p>
                             <?php else: ?>
                                 <p class="description" style="color: red;">No lists returned. Double check credentials.</p>
                             <?php endif; ?>
@@ -472,323 +330,8 @@ class FluentCRM_Remote_Manager {
                 </table>
                 <?php submit_button('Save Remote Gateway Routing'); ?>
             </form>
-
-            <?php if (!empty($this->get_setting('remote_url'))): ?>
-            <hr style="margin: 30px 0;">
-            <h2>✉ Send Test Alert / Manual Push</h2>
-            <p style="color:#555;">Use this panel to send a test alert or trigger a live manual push to all opted-in subscribers.</p>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">Test Email Addresses</th>
-                    <td>
-                        <strong style="word-break:break-all;"><?php echo esc_html($this->get_setting('test_alert_email', 'frank@businessday.ng')); ?></strong>
-                        &nbsp; <a href="<?php echo esc_url(admin_url('options-general.php?page=fc-remote-popup-settings')); ?>" style="font-size:12px;">▲ Edit above</a>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Alert Template to Test</th>
-                    <td>
-                        <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
-                            <input type="radio" name="fc_test_alert_type" value="instant" checked style="margin:0;"> 
-                            <span><strong>Instant Alert</strong> &mdash; Send a single-post breaking news alert layout</span>
-                        </label>
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                            <input type="radio" name="fc_test_alert_type" value="digest" style="margin:0;">
-                            <span><strong>Daily Digest</strong> &mdash; Send a multi-post daily digest layout</span>
-                        </label>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Send Mode</th>
-                    <td>
-                        <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
-                            <input type="radio" name="fc_test_send_mode" value="test" checked style="margin:0;"> 
-                            <span><strong>Test Only</strong> &mdash; Send to saved test emails only</span>
-                        </label>
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                            <input type="radio" name="fc_test_send_mode" value="live" style="margin:0;">
-                            <span><strong style="color:#c0392b;">⚠ Live Send</strong> &mdash; Send to ALL opted-in subscribers (Instant &amp; Daily Digest)</span>
-                        </label>
-                        <div id="fc-live-send-warning" style="display:none;margin-top:10px;padding:10px 15px;background:#fff3cd;border-left:4px solid #f0ad4e;border-radius:4px;">
-                            <strong>⚠ Warning:</strong> This will dispatch a real alert to every subscriber who has opted in for Instant or Daily Digest alerts. Use with caution.
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Send</th>
-                    <td>
-                        <button id="fc-send-test-alert-btn" class="button button-primary" style="font-size:14px;padding:6px 18px;">✉ Send Alert Now</button>
-                        <span id="fc-test-alert-result" style="margin-left:14px;font-weight:600;"></span>
-                        <script>
-                        (function() {
-                            var modeRadios = document.querySelectorAll('input[name="fc_test_send_mode"]');
-                            var warning = document.getElementById('fc-live-send-warning');
-                            modeRadios.forEach(function(r) {
-                                r.addEventListener('change', function() {
-                                    warning.style.display = (this.value === 'live') ? 'block' : 'none';
-                                });
-                            });
-
-                            document.getElementById('fc-send-test-alert-btn').addEventListener('click', function(e) {
-                                e.preventDefault();
-                                var btn = this;
-                                var result = document.getElementById('fc-test-alert-result');
-                                var mode = document.querySelector('input[name="fc_test_send_mode"]:checked').value;
-                                var alertType = document.querySelector('input[name="fc_test_alert_type"]:checked').value;
-
-                                if (mode === 'live') {
-                                    if (!confirm('You are about to send a LIVE alert to all opted-in subscribers. Are you sure?')) return;
-                                }
-
-                                btn.disabled = true;
-                                btn.textContent = 'Sending...';
-                                result.textContent = '';
-                                result.style.color = '';
-
-                                fetch(ajaxurl, {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                    body: new URLSearchParams({
-                                        action: 'fc_send_test_alert',
-                                        nonce: '<?php echo wp_create_nonce('fc_send_test_alert'); ?>',
-                                        mode: mode,
-                                        alert_type: alertType
-                                    })
-                                })
-                                .then(r => r.json())
-                                .then(data => {
-                                    if (data.success) {
-                                        result.style.color = 'green';
-                                        result.textContent = '✓ ' + data.data.message;
-                                    } else {
-                                        result.style.color = 'red';
-                                        result.textContent = '✗ ' + (data.data ? data.data.message : 'Failed.');
-                                    }
-                                    btn.disabled = false;
-                                    btn.innerHTML = '✉ Send Alert Now';
-                                })
-                                .catch(function() {
-                                    result.style.color = 'red';
-                                    result.textContent = '✗ Network error. Please try again.';
-                                    btn.disabled = false;
-                                    btn.innerHTML = '✉ Send Alert Now';
-                                });
-                            });
-                        })();
-                        </script>
-                    </td>
-                </tr>
-            </table>
-            <?php endif; ?>
         </div>
         <?php
-    }
-
-    public function handle_ajax_send_test_alert() {
-        check_ajax_referer('fc_send_test_alert', 'nonce');
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Unauthorized.']);
-        }
-
-        $mode       = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'test';
-        $alert_type = isset($_POST['alert_type']) ? sanitize_text_field($_POST['alert_type']) : 'instant';
-
-        if ($mode === 'live') {
-            if ($alert_type === 'digest') {
-                // Fire a real digest alert to all digest subscribers via remote CRM
-                $args = [
-                    'date_query' => [
-                        [
-                            'after' => '24 hours ago'
-                        ]
-                    ],
-                    'post_type' => 'post',
-                    'post_status' => 'publish',
-                    'posts_per_page' => -1,
-                    'tax_query' => [
-                        [
-                            'taxonomy' => 'post_tag',
-                            'field'    => 'slug',
-                            'terms'    => ['bdlead', 'bdrecent'],
-                            'operator' => 'IN'
-                        ]
-                    ]
-                ];
-                $recent_posts = get_posts($args);
-                if (empty($recent_posts)) {
-                    wp_send_json_error(['message' => 'No articles published in the last 24 hours to digest.']);
-                }
-
-                $posts_data = [];
-                foreach ($recent_posts as $post) {
-                    $posts_data[] = [
-                        'title'   => get_the_title($post->ID),
-                        'url'     => get_the_permalink($post->ID),
-                        'excerpt' => get_the_excerpt($post)
-                    ];
-                }
-
-                $payload = [
-                    'type'  => 'digest',
-                    'posts' => $posts_data
-                ];
-
-                $response = $this->remote_api_request('send-alert', 'POST', $payload);
-
-                if (is_wp_error($response)) {
-                    wp_send_json_error(['message' => 'Remote CRM error: ' . $response->get_error_message()]);
-                }
-
-                wp_send_json_success(['message' => 'Live digest broadcast dispatched to all opted-in Digest subscribers!']);
-
-            } else {
-                // Fire a real instant alert to all opted-in subscribers via remote CRM
-                $recent_posts = wp_get_recent_posts([
-                    'numberposts' => 1,
-                    'post_status' => 'publish'
-                ]);
-
-                if (empty($recent_posts)) {
-                    wp_send_json_error(['message' => 'No published articles found to broadcast.']);
-                }
-
-                $post = $recent_posts[0];
-                $post_id = is_array($post) ? $post['ID'] : $post->ID;
-                $post_title = is_array($post) ? $post['post_title'] : $post->post_title;
-                $title = esc_html($post_title);
-                $url = esc_url(get_permalink($post_id));
-
-                $excerpt = get_the_excerpt($post_id);
-                if (empty($excerpt) && is_array($post) && isset($post['post_content'])) {
-                    $excerpt = wp_trim_words($post['post_content'], 30);
-                }
-                $excerpt = esc_html($excerpt);
-
-                $payload = [
-                    'type'    => 'instant',
-                    'title'   => $title,
-                    'url'     => $url,
-                    'excerpt' => $excerpt
-                ];
-
-                $response = $this->remote_api_request('send-alert', 'POST', $payload);
-
-                if (is_wp_error($response)) {
-                    wp_send_json_error(['message' => 'Remote CRM error: ' . $response->get_error_message()]);
-                }
-
-                wp_send_json_success(['message' => 'Live broadcast dispatched to all opted-in Instant subscribers!']);
-            }
-
-        } else {
-            // Send to saved test emails only
-            $raw_emails = $this->get_setting('test_alert_email', 'frank@businessday.ng');
-            $emails = array_filter(array_map('trim', explode(',', $raw_emails)), 'is_email');
-
-            if (empty($emails)) {
-                wp_send_json_error(['message' => 'No valid test email addresses saved. Please add at least one above.']);
-            }
-
-            if ($alert_type === 'digest') {
-                $args = [
-                    'date_query' => [
-                        [
-                            'after' => '24 hours ago'
-                        ]
-                    ],
-                    'post_type' => 'post',
-                    'post_status' => 'publish',
-                    'posts_per_page' => -1,
-                    'tax_query' => [
-                        [
-                            'taxonomy' => 'post_tag',
-                            'field'    => 'slug',
-                            'terms'    => ['bdlead', 'bdrecent'],
-                            'operator' => 'IN'
-                        ]
-                    ]
-                ];
-                $recent_posts = get_posts($args);
-                if (empty($recent_posts)) {
-                    // Fallback to latest 3 posts
-                    unset($args['date_query']);
-                    $args['posts_per_page'] = 3;
-                    $recent_posts = get_posts($args);
-                }
-
-                $posts_data = [];
-                foreach ($recent_posts as $post) {
-                    $posts_data[] = [
-                        'title'   => get_the_title($post->ID),
-                        'url'     => get_the_permalink($post->ID),
-                        'excerpt' => get_the_excerpt($post)
-                    ];
-                }
-
-                if (empty($posts_data)) {
-                    $posts_data = [
-                        [
-                            'title'   => 'Sample Test Post 1',
-                            'url'     => home_url('/sample-1'),
-                            'excerpt' => 'This is a sample excerpt for the first test post in the daily digest.'
-                        ],
-                        [
-                            'title'   => 'Sample Test Post 2',
-                            'url'     => home_url('/sample-2'),
-                            'excerpt' => 'This is a sample excerpt for the second test post in the daily digest.'
-                        ]
-                    ];
-                }
-
-                $payload = [
-                    'type'        => 'test_send',
-                    'test_type'   => 'digest',
-                    'test_emails' => array_values($emails),
-                    'posts'       => $posts_data
-                ];
-
-            } else {
-                $recent_posts = wp_get_recent_posts([
-                    'numberposts' => 1,
-                    'post_status' => 'publish'
-                ]);
-
-                if (empty($recent_posts)) {
-                    wp_send_json_error(['message' => 'No published articles found to test with.']);
-                }
-
-                $post = $recent_posts[0];
-                $post_id = is_array($post) ? $post['ID'] : $post->ID;
-                $post_title = is_array($post) ? $post['post_title'] : $post->post_title;
-                $title = esc_html($post_title);
-                $url = esc_url(get_permalink($post_id));
-
-                $excerpt = get_the_excerpt($post_id);
-                if (empty($excerpt) && is_array($post) && isset($post['post_content'])) {
-                    $excerpt = wp_trim_words($post['post_content'], 30);
-                }
-                $excerpt = esc_html($excerpt);
-
-                $payload = [
-                    'type'        => 'test_send',
-                    'test_type'   => 'instant',
-                    'test_emails' => array_values($emails),
-                    'title'       => $title,
-                    'url'         => $url,
-                    'excerpt'     => $excerpt
-                ];
-            }
-
-            $response = $this->remote_api_request('send-alert', 'POST', $payload);
-
-            if (is_wp_error($response)) {
-                wp_send_json_error(['message' => 'Remote CRM error: ' . $response->get_error_message()]);
-            }
-
-            $count = count($emails);
-            wp_send_json_success(['message' => 'Test alert (' . ($alert_type === 'digest' ? 'Daily Digest' : 'Instant Alert') . ') sent to ' . $count . ' address' . ($count > 1 ? 'es' : '') . ': ' . implode(', ', $emails)]);
-        }
     }
 
     public function handle_form_submission() {
@@ -904,7 +447,7 @@ class FluentCRM_Remote_Manager {
                             <?php endif; ?>
                             <div class="fc-read-next-details">
                                 <h4 class="fc-read-next-title"><?php echo esc_html(get_the_title($next_post->ID)); ?></h4>
-                                <span class="fc-read-next-meta">By <?php echo get_the_author_meta('display_name', $next_post->post_author); ?> • <?php echo get_the_date('', $next_post->ID); ?></span>
+                                <span class="fc-read-next-meta">By <?php echo get_the_author_meta('display_name', $next_post->post_author); ?> â€¢ <?php echo get_the_date('', $next_post->ID); ?></span>
                             </div>
                         </a>
                     <?php else: ?>
@@ -955,10 +498,6 @@ class FluentCRM_Remote_Manager {
             return;
         }
 
-        if (!$post || !is_object($post) || !isset($post->post_type) || $post->post_type !== 'post') {
-            return;
-        }
-
         if (!has_tag(['bdlead', 'bdrecent'], $post->ID)) {
             return;
         }
@@ -988,27 +527,19 @@ class FluentCRM_Remote_Manager {
         }
 
         $target_list_ids = array_unique($target_list_ids);
-        if (empty($target_list_ids)) {
-            $target_list_ids = array_map('intval', $visible_lists);
-        }
-
-        $excerpt = get_the_excerpt($post);
-        if (empty($excerpt) && isset($post->post_content)) {
-            $excerpt = wp_trim_words($post->post_content, 30);
-        }
+        if (empty($target_list_ids)) return;
 
         $payload = [
             'post_id' => $post->ID,
-            'title'   => get_the_title($post->ID),
+            'title'   => $post->post_title,
             'url'     => get_the_permalink($post->ID),
-            'excerpt' => $excerpt,
+            'excerpt' => get_the_excerpt($post->ID),
             'lists'   => $target_list_ids,
             'type'    => 'instant'
         ];
 
         // Fire-and-forget to remote CRM
         $this->remote_api_request('send-alert', 'POST', $payload);
-        update_post_meta($post->ID, '_ft_instant_alert_sent', current_time('mysql'));
     }
 
     /**
@@ -1041,7 +572,7 @@ class FluentCRM_Remote_Manager {
         $posts_data = [];
         foreach ($recent_posts as $post) {
             $posts_data[] = [
-                'title'   => get_the_title($post->ID),
+                'title'   => $post->post_title,
                 'url'     => get_the_permalink($post->ID),
                 'excerpt' => get_the_excerpt($post)
             ];
@@ -1055,10 +586,7 @@ class FluentCRM_Remote_Manager {
         $this->remote_api_request('send-alert', 'POST', $payload);
     }
 }
-
 FluentCRM_Remote_Manager::get_instance();
-
-}
 /**
  * =========================================================================
  * END: FT AUTOMATED ALERT SYSTEM INSERTION
