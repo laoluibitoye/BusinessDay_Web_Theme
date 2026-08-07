@@ -11,8 +11,6 @@
 // emitted as literal HTML instead of parsed as PHP -- the class was never
 // actually defined and FluentCRM_Remote_Manager::get_instance() at the
 // bottom of the file would have fataled with "Class not found".
-if (!class_exists('FluentCRM_Remote_Manager')) {
-
 class FluentCRM_Remote_Manager {
     
     private static $instance = null;
@@ -589,7 +587,6 @@ class FluentCRM_Remote_Manager {
     }
 }
 FluentCRM_Remote_Manager::get_instance();
-}
 /**
  * =========================================================================
  * END: FT AUTOMATED ALERT SYSTEM INSERTION
