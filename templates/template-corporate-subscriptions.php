@@ -13,7 +13,7 @@ get_header(); ?>
                 <p class="hero-body">As a business leader, you make daily decisions that shape the future of your organization. Businessday helps you make critical business decisions by connecting global, award-winning reporting, financial data, and expert insights together into a powerful, relevant, and customizable news platform that you can use to drive business growth at every level.</p>
             </div>
             
-            <div class="hero-form-card">
+            <div class="hero-form-card" id="pricing-form-section">
                 <h3 class="form-section-title">Select subscription type:</h3>
                 
                 <div class="subscription-options">
@@ -128,7 +128,7 @@ get_header(); ?>
             </div>
 
             <div class="features-cta">
-                <button class="btn btn-primary">Get Pricing</button>
+                <a href="#pricing-form-section" class="btn btn-primary">Get Pricing</a>
                 <p class="cta-italic">Become one of the thousands of companies that empower their workforce with a Corporate Subscription</p>
             </div>
         </div>
@@ -138,7 +138,7 @@ get_header(); ?>
     <section class="bottom-cta-section">
         <div class="container text-center">
             <h2 class="bottom-cta-heading">Get the trusted resource your team needs</h2>
-            <button class="btn btn-outline">Get Pricing</button>
+            <a href="#pricing-form-section" class="btn btn-outline">Get Pricing</a>
         </div>
     </section>
 </div>

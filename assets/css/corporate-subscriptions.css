@@ -17,8 +17,8 @@
     --c-text-muted: #6b7280;
     
     /* Typography */
-    --font-sans: 'Open Sans', system-ui, -apple-system, sans-serif;
-    --font-serif: 'Playfair Display', serif;
+    --font-sans: "Public Sans Regular", sans-serif;
+    --font-serif: "Public Sans Regular", sans-serif;
 }
 
 /* Scoped to avoid overriding theme defaults */
@@ -54,43 +54,45 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 60px;
+    gap: 0;
 }
 
 .hero-content {
     flex: 1;
     max-width: 500px;
     padding-top: 20px;
+    margin-right: 20px;
 }
 
 .hero-title {
     font-family: var(--font-sans);
-    font-size: 26px;
+    font-size: 20px;
     font-weight: 600;
     letter-spacing: 1px;
     margin-bottom: 30px;
     display: flex;
     align-items: center;
     gap: 10px;
+    white-space: nowrap;
 }
 
 .wsj-logo {
     font-family: var(--font-serif);
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 700;
     font-style: italic;
     line-height: 1;
 }
 
 .hero-lead {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 600;
     margin-bottom: 25px;
     line-height: 1.6;
 }
 
 .hero-body {
-    font-size: 14px;
+    font-size: 20px;
     font-weight: 400;
     line-height: 1.7;
     opacity: 0.9;
@@ -164,8 +166,8 @@
 }
 
 .badge {
-    background-color: var(--c-badge-blue);
-    color: var(--c-white);
+    background-color: red;
+    color: white;
     font-size: 10px;
     font-weight: 700;
     padding: 4px 10px;
