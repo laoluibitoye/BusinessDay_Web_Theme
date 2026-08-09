@@ -26,7 +26,7 @@ get_header(); ?>
                         <label class="radio-label">
                             <input type="radio" name="sub_type" value="bundle">
                             <span class="custom-radio"></span>
-                            <span class="radio-text">Businessday + Barron's + MarketWatch bundle</span>
+                            <span class="radio-text">Businessday full Bundle + Newsletters + Ecopy</span>
                         </label>
                         <span class="badge">SAVE 50% OR MORE</span>
                     </div>
@@ -90,6 +90,7 @@ get_header(); ?>
                     <p class="terms-text">By clicking the button below, you agree to the Dow Jones <a href="#">Privacy Notice</a> and <a href="#">Cookie Notice</a>.</p>
 
                     <button type="submit" class="btn btn-primary btn-block">Get Pricing</button>
+                    <div id="form-message" style="margin-top: 15px; font-weight: bold; text-align: center; display: none;"></div>
                 </form>
             </div>
         </div>

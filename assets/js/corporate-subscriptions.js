@@ -4,7 +4,68 @@ document.addEventListener('DOMContentLoaded', () => {
     if (form) {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
-            alert('Form submitted! We will get back to you shortly.');
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const messageDiv = document.getElementById('form-message');
+            
+            if (submitBtn) {
+                submitBtn.dataset.originalText = submitBtn.textContent;
+                submitBtn.textContent = 'Sending...';
+                submitBtn.disabled = true;
+            }
+            if (messageDiv) {
+                messageDiv.style.display = 'none';
+                messageDiv.textContent = '';
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit_corporate_subscription');
+            formData.append('firstName', document.getElementById('firstName')?.value || '');
+            formData.append('lastName', document.getElementById('lastName')?.value || '');
+            formData.append('email', document.getElementById('email')?.value || '');
+            formData.append('phone', document.getElementById('phone')?.value || '');
+            formData.append('jobTitle', document.getElementById('jobTitle')?.value || '');
+            formData.append('company', document.getElementById('company')?.value || '');
+            formData.append('country', document.getElementById('country')?.value || '');
+            
+            const subType = document.querySelector('input[name="sub_type"]:checked');
+            formData.append('sub_type', subType ? subType.value : '');
+            
+            const updates = document.getElementById('updates')?.checked ? 'Yes' : 'No';
+            formData.append('updates', updates);
+
+            fetch(corpSubAjax.ajaxurl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (messageDiv) {
+                    messageDiv.style.display = 'block';
+                    if (data.success) {
+                        messageDiv.style.color = 'green';
+                        messageDiv.textContent = data.data;
+                        form.reset();
+                    } else {
+                        messageDiv.style.color = 'red';
+                        messageDiv.textContent = data.data || 'An error occurred. Please try again.';
+                    }
+                }
+            })
+            .catch(error => {
+                if (messageDiv) {
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = 'An error occurred. Please try again.';
+                }
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                if (submitBtn) {
+                    submitBtn.textContent = submitBtn.dataset.originalText;
+                    submitBtn.disabled = false;
+                }
+            });
         });
     }
 
@@ -29,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: 'Provide your information:'
         },
         'bundle': {
-            lead: 'Empower your company by maximizing business value. Give your team a competitive advantage with the Businessday + Barron\'s + MarketWatch Digital Bundle.',
+            lead: 'Empower your company by maximizing business value. Give your team a competitive advantage with the Businessday full Bundle + Newsletters + Ecopy.',
             body: 'The bundle connects global news, company and market data, and expert financial insights across world-class publications — so your employees can make informed business decisions, faster. Together, these trusted publications deliver comprehensive coverage that supports your company\'s goals and your team\'s growth.',
             title: 'Provide your information to start saving 50%'
         }

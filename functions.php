@@ -1620,8 +1620,106 @@ function wc_submit_prediction_handler() {
  */
 function bday_enqueue_corporate_subscriptions_assets() {
     if ( is_page_template( 'templates/template-corporate-subscriptions.php' ) ) {
-        wp_enqueue_style( 'corporate-subscriptions-style', get_template_directory_uri() . '/assets/css/corporate-subscriptions.css', array(), '1.0' );
-        wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array(), '1.0', true );
+        $css_ver = filemtime( get_template_directory() . '/assets/css/corporate-subscriptions.css' );
+        $js_ver  = filemtime( get_template_directory() . '/assets/js/corporate-subscriptions.js' );
+        
+        wp_enqueue_style( 'corporate-subscriptions-style', get_template_directory_uri() . '/assets/css/corporate-subscriptions.css', array(), $css_ver );
+        wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array(), $js_ver, true );
+        
+        wp_localize_script( 'corporate-subscriptions-script', 'corpSubAjax', array(
+            'ajaxurl' => admin_url( 'admin-ajax.php' )
+        ));
     }
 }
 add_action( 'wp_enqueue_scripts', 'bday_enqueue_corporate_subscriptions_assets' );
+
+/**
+ * Corporate Subscriptions AJAX Handler
+ */
+function bday_handle_corporate_subscription() {
+    $first_name = isset($_POST['firstName']) ? sanitize_text_field($_POST['firstName']) : '';
+    $last_name = isset($_POST['lastName']) ? sanitize_text_field($_POST['lastName']) : '';
+    $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+    $phone = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
+    $job_title = isset($_POST['jobTitle']) ? sanitize_text_field($_POST['jobTitle']) : '';
+    $company = isset($_POST['company']) ? sanitize_text_field($_POST['company']) : '';
+    $country = isset($_POST['country']) ? sanitize_text_field($_POST['country']) : '';
+    $sub_type = isset($_POST['sub_type']) ? sanitize_text_field($_POST['sub_type']) : '';
+    $wants_updates = isset($_POST['updates']) ? sanitize_text_field($_POST['updates']) : 'No';
+
+    if (empty($first_name) || empty($last_name) || empty($email)) {
+        wp_send_json_error('Missing required fields.');
+    }
+
+    $upload_dir = wp_upload_dir();
+    $csv_file = $upload_dir['basedir'] . '/corporate_subscriptions.csv';
+    $is_new_file = !file_exists($csv_file);
+    $fp = fopen($csv_file, 'a');
+
+    if ($is_new_file) {
+        fputcsv($fp, array('First Name', 'Last Name', 'Email', 'Phone', 'Job Title', 'Company', 'Country', 'Subscription Type', 'Wants Updates', 'Submission Date'));
+    }
+
+    fputcsv($fp, array($first_name, $last_name, $email, $phone, $job_title, $company, $country, $sub_type, $wants_updates, current_time('mysql')));
+    fclose($fp);
+
+    wp_send_json_success('Your subscription request has been received. We will get back to you shortly.');
+}
+add_action('wp_ajax_submit_corporate_subscription', 'bday_handle_corporate_subscription');
+add_action('wp_ajax_nopriv_submit_corporate_subscription', 'bday_handle_corporate_subscription');
+
+/**
+ * Corporate Subscriptions Admin Page
+ */
+function bday_corporate_subs_admin_menu() {
+    add_menu_page(
+        'Corporate Subs',
+        'Corporate Subs',
+        'manage_options',
+        'corporate-subs-data',
+        'bday_render_corporate_subs_page',
+        'dashicons-media-spreadsheet',
+        25
+    );
+}
+add_action('admin_menu', 'bday_corporate_subs_admin_menu');
+
+function bday_render_corporate_subs_page() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $upload_dir = wp_upload_dir();
+    $csv_file = $upload_dir['basedir'] . '/corporate_subscriptions.csv';
+    $csv_url = $upload_dir['baseurl'] . '/corporate_subscriptions.csv';
+
+    echo '<div class="wrap">';
+    echo '<h1>Corporate Subscriptions Data</h1>';
+    
+    if (file_exists($csv_file)) {
+        echo '<p><a href="' . esc_url($csv_url) . '" class="button button-primary" download>Download CSV</a></p>';
+        echo '<table class="wp-list-table widefat fixed striped">';
+        
+        $fp = fopen($csv_file, 'r');
+        $is_header = true;
+        
+        while (($data = fgetcsv($fp)) !== FALSE) {
+            echo '<tr>';
+            foreach ($data as $cell) {
+                if ($is_header) {
+                    echo '<th>' . esc_html($cell) . '</th>';
+                } else {
+                    echo '<td>' . esc_html($cell) . '</td>';
+                }
+            }
+            echo '</tr>';
+            $is_header = false;
+        }
+        fclose($fp);
+        echo '</table>';
+    } else {
+        echo '<p>No subscription requests found yet.</p>';
+    }
+    
+    echo '</div>';
+}
