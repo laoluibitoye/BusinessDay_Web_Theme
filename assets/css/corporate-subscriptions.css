@@ -1,0 +1,423 @@
+/* ==========================================================================
+   CSS Resets & Variables
+   ========================================================================== */
+:root {
+    /* Colors derived from screenshot */
+    --c-navy-dark: #0f1626; /* Main Nav & Bottom CTA */
+    --c-navy-hero: #000000; /* Hero Section Background */
+    --c-navy-footer: #0a1016; /* Footer Background */
+    --c-neon-green: #ff0000; /* Action Buttons */
+    --c-neon-green-hover: #cc0000;
+    --c-badge-blue: #3b82f6; /* Save 50% Badge */
+    
+    --c-white: #ffffff;
+    --c-gray-light: #f3f4f6;
+    --c-gray-border: #e5e7eb;
+    --c-text-main: #1f2937;
+    --c-text-muted: #6b7280;
+    
+    /* Typography */
+    --font-sans: 'Open Sans', system-ui, -apple-system, sans-serif;
+    --font-serif: 'Playfair Display', serif;
+}
+
+/* Scoped to avoid overriding theme defaults */
+.corporate-subscriptions-wrap {
+    font-family: var(--font-sans);
+    color: var(--c-text-main);
+    line-height: 1.5;
+    background-color: var(--c-white);
+    -webkit-font-smoothing: antialiased;
+}
+
+.corporate-subscriptions-wrap a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.corporate-subscriptions-wrap .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ==========================================================================
+   Hero Section
+   ========================================================================== */
+.hero {
+    background-color: var(--c-navy-hero);
+    color: var(--c-white);
+    padding: 60px 0;
+}
+
+.hero-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 60px;
+}
+
+.hero-content {
+    flex: 1;
+    max-width: 500px;
+    padding-top: 20px;
+}
+
+.hero-title {
+    font-family: var(--font-sans);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wsj-logo {
+    font-family: var(--font-serif);
+    font-size: 32px;
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+}
+
+.hero-lead {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+
+.hero-body {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.7;
+    opacity: 0.9;
+}
+
+/* ==========================================================================
+   Hero Form Card
+   ========================================================================== */
+.hero-form-card {
+    background-color: var(--c-white);
+    color: var(--c-text-main);
+    padding: 30px;
+    border-radius: 4px;
+    width: 100%;
+    max-width: 580px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.form-section-title {
+    font-size: 20px;
+    font-style: italic;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.subscription-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.radio-label input[type="radio"] {
+    display: none;
+}
+
+.custom-radio {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--c-text-main);
+    border-radius: 50%;
+    margin-right: 12px;
+    position: relative;
+}
+
+.radio-label input[type="radio"]:checked + .custom-radio::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background-color: var(--c-text-main);
+    border-radius: 50%;
+}
+
+.bundle-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.badge {
+    background-color: var(--c-badge-blue);
+    color: var(--c-white);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-left: 32px;
+}
+
+.form-divider {
+    border: 0;
+    height: 1px;
+    background-color: var(--c-gray-border);
+    margin: 20px 0;
+}
+
+.form-subtitle {
+    font-size: 14px;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+/* Form Inputs */
+.corporate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-row {
+    display: flex;
+    gap: 20px;
+}
+
+.input-group {
+    position: relative;
+    flex: 1;
+}
+
+.input-group input, 
+.input-group select {
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-bottom: 1px solid var(--c-gray-border);
+    background: transparent;
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+}
+
+.input-group input:focus, 
+.input-group select:focus {
+    border-bottom-color: var(--c-text-main);
+}
+
+.input-group label {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    font-size: 14px;
+    color: var(--c-text-muted);
+    transition: 0.2s ease all;
+    pointer-events: none;
+}
+
+.input-group input:focus ~ label,
+.input-group input:valid ~ label,
+.input-group select:focus ~ label,
+.input-group select:valid ~ label {
+    top: -14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-text-main);
+}
+
+/* Select specific styles */
+.select-group select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+
+.select-arrow {
+    position: absolute;
+    right: 0;
+    top: 10px;
+    pointer-events: none;
+    font-size: 12px;
+}
+
+/* Checkbox & Terms */
+.checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-top: 2px;
+    cursor: pointer;
+}
+
+.checkbox-group label {
+    font-size: 11px;
+    color: var(--c-text-muted);
+    line-height: 1.4;
+}
+
+.terms-text {
+    font-size: 9px;
+    color: var(--c-text-muted);
+    text-align: center;
+    margin: 10px 0;
+}
+
+.terms-text a {
+    text-decoration: underline;
+}
+
+/* Buttons */
+.corporate-subscriptions-wrap .btn {
+    display: inline-block;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s;
+}
+
+.corporate-subscriptions-wrap .btn-primary {
+    background-color: red !important;
+    color: white !important;
+    border-color: red !important;
+}
+
+.corporate-subscriptions-wrap .btn-primary:hover {
+    background-color: darkred !important;
+    border-color: darkred !important;
+}
+
+.corporate-subscriptions-wrap .btn-block {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.corporate-subscriptions-wrap .btn-outline {
+    background-color: red !important;
+    color: white !important;
+    border: 1px solid darkred !important;
+}
+
+.corporate-subscriptions-wrap .btn-outline:hover {
+    background-color: darkred !important;
+    color: white !important;
+}
+
+/* ==========================================================================
+   Features Section
+   ========================================================================== */
+.features-section {
+    padding: 60px 0 80px;
+    background-color: var(--c-white);
+    text-align: center;
+}
+
+.features-heading {
+    font-size: 24px;
+    font-style: italic;
+    font-weight: 600;
+    margin-bottom: 50px;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.feature-title {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    letter-spacing: 0.5px;
+}
+
+.feature-text {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    line-height: 1.6;
+    max-width: 250px;
+    margin: 0 auto;
+}
+
+.features-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.cta-italic {
+    font-size: 20px;
+    font-style: italic;
+    font-weight: 600;
+    max-width: 600px;
+}
+
+/* ==========================================================================
+   Bottom CTA Section
+   ========================================================================== */
+.bottom-cta-section {
+    background-color: var(--c-navy-hero);
+    padding: 60px 0;
+    text-align: center;
+}
+
+.bottom-cta-heading {
+    color: var(--c-white);
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 30px;
+}
+
+/* ==========================================================================
+   Responsive adjustments
+   ========================================================================== */
+@media (max-width: 900px) {
+    .hero-container {
+        flex-direction: column;
+    }
+    
+    .hero-content, .hero-form-card {
+        max-width: 100%;
+    }
+    
+    .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: 20px;
+    }
+}

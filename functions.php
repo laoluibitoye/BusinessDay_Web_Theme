@@ -1615,4 +1615,13 @@ function wc_submit_prediction_handler() {
     wp_send_json_success('Prediction saved successfully!');
 }
 
-
+/**
+ * Enqueue scripts and styles for Corporate Subscriptions page
+ */
+function bday_enqueue_corporate_subscriptions_assets() {
+    if ( is_page_template( 'templates/template-corporate-subscriptions.php' ) ) {
+        wp_enqueue_style( 'corporate-subscriptions-style', get_template_directory_uri() . '/assets/css/corporate-subscriptions.css', array(), '1.0' );
+        wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array(), '1.0', true );
+    }
+}
+add_action( 'wp_enqueue_scripts', 'bday_enqueue_corporate_subscriptions_assets' );

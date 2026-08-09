@@ -3,4 +3,4 @@
 scratch/
 .wp-playground/
 .wp-data/
-
+node_modules/
