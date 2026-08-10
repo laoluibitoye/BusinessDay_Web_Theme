@@ -1706,15 +1706,15 @@ function bday_handle_corporate_subscription() {
                 <p>Hello,</p>
                 <p>A new corporate subscription request has been received. Here are the details:</p>
                 <table class='details-table'>
-                    <tr><th>First Name</th><td>" . esc_html(\$first_name) . "</td></tr>
-                    <tr><th>Last Name</th><td>" . esc_html(\$last_name) . "</td></tr>
-                    <tr><th>Email</th><td>" . esc_html(\$email) . "</td></tr>
-                    <tr><th>Phone</th><td>" . esc_html(\$phone) . "</td></tr>
-                    <tr><th>Job Title</th><td>" . esc_html(\$job_title) . "</td></tr>
-                    <tr><th>Company</th><td>" . esc_html(\$company) . "</td></tr>
-                    <tr><th>Country</th><td>" . esc_html(\$country) . "</td></tr>
-                    <tr><th>Subscription Type</th><td>" . esc_html(\$sub_type) . "</td></tr>
-                    <tr><th>Wants Updates</th><td>" . esc_html(\$wants_updates) . "</td></tr>
+                    <tr><th>First Name</th><td>" . esc_html($first_name) . "</td></tr>
+                    <tr><th>Last Name</th><td>" . esc_html($last_name) . "</td></tr>
+                    <tr><th>Email</th><td>" . esc_html($email) . "</td></tr>
+                    <tr><th>Phone</th><td>" . esc_html($phone) . "</td></tr>
+                    <tr><th>Job Title</th><td>" . esc_html($job_title) . "</td></tr>
+                    <tr><th>Company</th><td>" . esc_html($company) . "</td></tr>
+                    <tr><th>Country</th><td>" . esc_html($country) . "</td></tr>
+                    <tr><th>Subscription Type</th><td>" . esc_html($sub_type) . "</td></tr>
+                    <tr><th>Wants Updates</th><td>" . esc_html($wants_updates) . "</td></tr>
                 </table>
             </div>
             <div class='footer'>
@@ -1724,8 +1724,8 @@ function bday_handle_corporate_subscription() {
     </body>
     </html>";
 
-    \$headers = array('Content-Type: text/html; charset=UTF-8');
-    wp_mail(\$to, \$subject, \$message, \$headers);
+    $headers = array('Content-Type: text/html; charset=UTF-8');
+    wp_mail($to, $subject, $message, $headers);
 
 
     wp_send_json_success('Your subscription request has been received. We will get back to you shortly.');
