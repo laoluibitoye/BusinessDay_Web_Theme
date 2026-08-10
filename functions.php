@@ -1648,7 +1648,14 @@ function bday_handle_corporate_subscription() {
     $job_title = isset($_POST['jobTitle']) ? sanitize_text_field($_POST['jobTitle']) : '';
     $company = isset($_POST['company']) ? sanitize_text_field($_POST['company']) : '';
     $country = isset($_POST['country']) ? sanitize_text_field($_POST['country']) : '';
-    $sub_type = isset($_POST['sub_type']) ? sanitize_text_field($_POST['sub_type']) : '';
+    
+    $sub_type_raw = isset($_POST['sub_type']) ? sanitize_text_field($_POST['sub_type']) : '';
+    $sub_type_map = array(
+        'wsj' => 'Businessday only',
+        'bundle' => 'Businessday full Bundle + Newsletters + Ecopy'
+    );
+    $sub_type = isset($sub_type_map[$sub_type_raw]) ? $sub_type_map[$sub_type_raw] : $sub_type_raw;
+
     $wants_updates = isset($_POST['updates']) ? sanitize_text_field($_POST['updates']) : 'No';
 
     if (empty($first_name) || empty($last_name) || empty($email)) {
@@ -1666,6 +1673,23 @@ function bday_handle_corporate_subscription() {
 
     fputcsv($fp, array($first_name, $last_name, $email, $phone, $job_title, $company, $country, $sub_type, $wants_updates, current_time('mysql')));
     fclose($fp);
+
+    // Send email notification
+    $to = get_option('bday_corporate_subs_email', get_option('admin_email'));
+    $subject = 'New Corporate Subscription Request';
+    $message = "A new corporate subscription request has been received.\n\n" .
+               "First Name: $first_name\n" .
+               "Last Name: $last_name\n" .
+               "Email: $email\n" .
+               "Phone: $phone\n" .
+               "Job Title: $job_title\n" .
+               "Company: $company\n" .
+               "Country: $country\n" .
+               "Subscription Type: $sub_type\n" .
+               "Wants Updates: $wants_updates\n";
+    
+    wp_mail($to, $subject, $message);
+
 
     wp_send_json_success('Your subscription request has been received. We will get back to you shortly.');
 }
@@ -1693,6 +1717,13 @@ function bday_render_corporate_subs_page() {
         return;
     }
 
+    if (isset($_POST['bday_corp_email_save']) && isset($_POST['bday_corp_email_nonce']) && wp_verify_nonce($_POST['bday_corp_email_nonce'], 'bday_corp_email_action')) {
+        update_option('bday_corporate_subs_email', sanitize_email($_POST['bday_corp_email']));
+        echo '<div class="notice notice-success is-dismissible"><p>Notification email updated.</p></div>';
+    }
+
+    $current_email = get_option('bday_corporate_subs_email', get_option('admin_email'));
+
     $upload_dir = wp_upload_dir();
     $csv_file = $upload_dir['basedir'] . '/corporate_subscriptions.csv';
     $csv_url = $upload_dir['baseurl'] . '/corporate_subscriptions.csv';
@@ -1700,27 +1731,132 @@ function bday_render_corporate_subs_page() {
     echo '<div class="wrap">';
     echo '<h1>Corporate Subscriptions Data</h1>';
     
+    // Settings Form
+    echo '<h2>Notification Settings</h2>';
+    echo '<form method="post" action="">';
+    wp_nonce_field('bday_corp_email_action', 'bday_corp_email_nonce');
+    echo '<table class="form-table" style="max-width: 600px; margin-bottom: 20px;"><tr>';
+    echo '<th scope="row" style="width: 150px;"><label for="bday_corp_email">Email Address</label></th>';
+    echo '<td><input name="bday_corp_email" type="email" id="bday_corp_email" value="' . esc_attr($current_email) . '" class="regular-text"></td>';
+    echo '</tr></table>';
+    echo '<p class="submit" style="margin-top: 0; padding-top: 0;"><input type="submit" name="bday_corp_email_save" class="button button-secondary" value="Save Email"></p>';
+    echo '</form>';
+    echo '<hr style="margin: 30px 0;">';
+    
     if (file_exists($csv_file)) {
-        echo '<p><a href="' . esc_url($csv_url) . '" class="button button-primary" download>Download CSV</a></p>';
-        echo '<table class="wp-list-table widefat fixed striped">';
-        
+        // Read CSV into array
         $fp = fopen($csv_file, 'r');
-        $is_header = true;
-        
+        $headers = fgetcsv($fp);
+        $rows = array();
         while (($data = fgetcsv($fp)) !== FALSE) {
-            echo '<tr>';
-            foreach ($data as $cell) {
-                if ($is_header) {
-                    echo '<th>' . esc_html($cell) . '</th>';
-                } else {
-                    echo '<td>' . esc_html($cell) . '</td>';
-                }
-            }
-            echo '</tr>';
-            $is_header = false;
+            $rows[] = $data;
         }
         fclose($fp);
-        echo '</table>';
+        
+        // Retrieve filter parameters
+        $search_query = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+        $start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : '';
+        $end_date = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : '';
+        
+        // Filter rows
+        if (!empty($search_query) || !empty($start_date) || !empty($end_date)) {
+            $filtered_rows = array();
+            foreach ($rows as $row) {
+                $match_search = true;
+                $match_date = true;
+                
+                if (!empty($search_query)) {
+                    $row_string = implode(' ', $row);
+                    if (stripos($row_string, $search_query) === false) {
+                        $match_search = false;
+                    }
+                }
+                
+                if (!empty($start_date) || !empty($end_date)) {
+                    $submission_date = end($row); // Last column is date
+                    $timestamp = strtotime($submission_date);
+                    
+                    if (!empty($start_date) && $timestamp < strtotime($start_date . ' 00:00:00')) {
+                        $match_date = false;
+                    }
+                    if (!empty($end_date) && $timestamp > strtotime($end_date . ' 23:59:59')) {
+                        $match_date = false;
+                    }
+                }
+                
+                if ($match_search && $match_date) {
+                    $filtered_rows[] = $row;
+                }
+            }
+            $rows = $filtered_rows;
+        }
+        
+        // Reverse rows to show newest first by default
+        $rows = array_reverse($rows);
+        
+        // Pagination logic
+        $items_per_page = 20;
+        $total_items = count($rows);
+        $total_pages = ceil($total_items / $items_per_page);
+        $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+        $offset = ($current_page - 1) * $items_per_page;
+        
+        $paged_rows = array_slice($rows, $offset, $items_per_page);
+        
+        // Filter Form UI
+        echo '<form method="get" action="">';
+        echo '<input type="hidden" name="page" value="corporate-subs-data">';
+        echo '<div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end;">';
+        echo '<div><label style="display:block;margin-bottom:5px;">Search</label><input type="search" name="s" value="' . esc_attr($search_query) . '" style="width: 250px;" placeholder="Search all fields..."></div>';
+        echo '<div><label style="display:block;margin-bottom:5px;">Start Date</label><input type="date" name="start_date" value="' . esc_attr($start_date) . '"></div>';
+        echo '<div><label style="display:block;margin-bottom:5px;">End Date</label><input type="date" name="end_date" value="' . esc_attr($end_date) . '"></div>';
+        echo '<div><input type="submit" class="button" value="Filter"> ';
+        if (!empty($search_query) || !empty($start_date) || !empty($end_date)) {
+            echo '<a href="?page=corporate-subs-data" class="button">Clear</a>';
+        }
+        echo '</div>';
+        echo '<div style="margin-left:auto;"><a href="' . esc_url($csv_url) . '" class="button button-primary" download>Download Full CSV</a></div>';
+        echo '</div>';
+        echo '</form>';
+
+        // Table UI
+        echo '<table class="wp-list-table widefat fixed striped">';
+        echo '<thead><tr>';
+        if ($headers) {
+            foreach ($headers as $header) {
+                echo '<th>' . esc_html($header) . '</th>';
+            }
+        }
+        echo '</tr></thead><tbody>';
+        
+        if (empty($paged_rows)) {
+            $col_count = $headers ? count($headers) : 1;
+            echo '<tr><td colspan="' . $col_count . '">No submissions found.</td></tr>';
+        } else {
+            foreach ($paged_rows as $row) {
+                echo '<tr>';
+                foreach ($row as $cell) {
+                    echo '<td>' . esc_html($cell) . '</td>';
+                }
+                echo '</tr>';
+            }
+        }
+        echo '</tbody></table>';
+        
+        // Pagination UI
+        if ($total_pages > 1) {
+            echo '<div class="tablenav"><div class="tablenav-pages">';
+            echo paginate_links(array(
+                'base' => add_query_arg('paged', '%#%'),
+                'format' => '',
+                'prev_text' => '&laquo;',
+                'next_text' => '&raquo;',
+                'total' => $total_pages,
+                'current' => $current_page
+            ));
+            echo '</div></div>';
+        }
+        
     } else {
         echo '<p>No subscription requests found yet.</p>';
     }
