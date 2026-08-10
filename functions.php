@@ -1677,18 +1677,55 @@ function bday_handle_corporate_subscription() {
     // Send email notification
     $to = get_option('bday_corporate_subs_email', get_option('admin_email'));
     $subject = 'New Corporate Subscription Request';
-    $message = "A new corporate subscription request has been received.\n\n" .
-               "First Name: $first_name\n" .
-               "Last Name: $last_name\n" .
-               "Email: $email\n" .
-               "Phone: $phone\n" .
-               "Job Title: $job_title\n" .
-               "Company: $company\n" .
-               "Country: $country\n" .
-               "Subscription Type: $sub_type\n" .
-               "Wants Updates: $wants_updates\n";
     
-    wp_mail($to, $subject, $message);
+    $message = "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaeaea; }
+            .header { background-color: #003366; color: #ffffff; padding: 25px 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+            .content { padding: 30px 40px; }
+            .content p { font-size: 16px; line-height: 1.6; margin-top: 0; color: #555; }
+            .details-table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+            .details-table th, .details-table td { padding: 14px 15px; border-bottom: 1px solid #eeeeee; text-align: left; font-size: 15px; }
+            .details-table th { font-weight: 600; color: #222; width: 40%; background-color: #fcfcfc; }
+            .details-table td { color: #555; }
+            .details-table tr:last-child th, .details-table tr:last-child td { border-bottom: none; }
+            .footer { background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 13px; color: #999; border-top: 1px solid #eeeeee; }
+        </style>
+    </head>
+    <body>
+        <div class='container'>
+            <div class='header'>
+                <h1>New Corporate Subscription</h1>
+            </div>
+            <div class='content'>
+                <p>Hello,</p>
+                <p>A new corporate subscription request has been received. Here are the details:</p>
+                <table class='details-table'>
+                    <tr><th>First Name</th><td>" . esc_html(\$first_name) . "</td></tr>
+                    <tr><th>Last Name</th><td>" . esc_html(\$last_name) . "</td></tr>
+                    <tr><th>Email</th><td>" . esc_html(\$email) . "</td></tr>
+                    <tr><th>Phone</th><td>" . esc_html(\$phone) . "</td></tr>
+                    <tr><th>Job Title</th><td>" . esc_html(\$job_title) . "</td></tr>
+                    <tr><th>Company</th><td>" . esc_html(\$company) . "</td></tr>
+                    <tr><th>Country</th><td>" . esc_html(\$country) . "</td></tr>
+                    <tr><th>Subscription Type</th><td>" . esc_html(\$sub_type) . "</td></tr>
+                    <tr><th>Wants Updates</th><td>" . esc_html(\$wants_updates) . "</td></tr>
+                </table>
+            </div>
+            <div class='footer'>
+                <p>This email was sent automatically from your website.</p>
+            </div>
+        </div>
+    </body>
+    </html>";
+
+    \$headers = array('Content-Type: text/html; charset=UTF-8');
+    wp_mail(\$to, \$subject, \$message, \$headers);
 
 
     wp_send_json_success('Your subscription request has been received. We will get back to you shortly.');
