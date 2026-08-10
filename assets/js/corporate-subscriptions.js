@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Select2 if jQuery is available
+    if (typeof jQuery !== 'undefined' && jQuery('#country').length) {
+        jQuery('#country').select2({
+            placeholder: "",
+            width: '100%'
+        });
+    }
     const form = document.querySelector('.corporate-form');
     
     if (form) {

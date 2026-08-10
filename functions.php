@@ -1623,8 +1623,12 @@ function bday_enqueue_corporate_subscriptions_assets() {
         $css_ver = filemtime( get_template_directory() . '/assets/css/corporate-subscriptions.css' );
         $js_ver  = filemtime( get_template_directory() . '/assets/js/corporate-subscriptions.js' );
         
+        // Enqueue Select2 for searchable dropdowns
+        wp_enqueue_style( 'select2-css', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', array(), '4.1.0' );
+        wp_enqueue_script( 'select2-js', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', array('jquery'), '4.1.0', true );
+
         wp_enqueue_style( 'corporate-subscriptions-style', get_template_directory_uri() . '/assets/css/corporate-subscriptions.css', array(), $css_ver );
-        wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array(), $js_ver, true );
+        wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array('jquery', 'select2-js'), $js_ver, true );
         
         wp_localize_script( 'corporate-subscriptions-script', 'corpSubAjax', array(
             'ajaxurl' => admin_url( 'admin-ajax.php' )

@@ -423,3 +423,38 @@
         gap: 20px;
     }
 }
+
+/* Select2 overrides */
+.select2-container--default .select2-selection--single {
+    height: 48px;
+    border: none;
+    border-bottom: 1px solid var(--c-gray-border);
+    border-radius: 0;
+    background-color: transparent;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    padding-left: 0;
+    line-height: 48px;
+    color: var(--c-text-main);
+    font-size: 14px;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 48px;
+    display: none; /* Hide default arrow to use our custom one or keep it minimal */
+}
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default .select2-selection--single:focus {
+    outline: none !important;
+    border: none !important;
+    border-bottom: 2px solid var(--c-navy-dark) !important;
+    box-shadow: none !important;
+}
+/* Ensure the floating label works with Select2 */
+.select2-container {
+    margin-top: 5px;
+    outline: none !important;
+}
+.select2-search__field {
+    outline: none !important;
+}
