@@ -9,8 +9,8 @@ get_header(); ?>
         <div class="container hero-container">
             <div class="hero-content">
                 <h1 class="hero-title"><span class="wsj-logo">Businessday</span> CORPORATE SUBSCRIPTIONS</h1>
-                <p class="hero-lead">Equip your company with trusted, timely, and comprehensive business news, information, and expert analysis it needs to stay informed and ahead.</p>
-                <p class="hero-body">As a business leader, you make daily decisions that shape the future of your organization. Businessday helps you make critical business decisions by connecting global, award-winning reporting, financial data, and expert insights together into a powerful, relevant, and customizable news platform that you can use to drive business growth at every level.</p>
+                <p class="hero-lead">Give your organisation the credible, current and complete business intelligence it needs to see clearly and move first.</p>
+                <p class="hero-body">Every day, the decisions you take as a leader determine where your company goes next. BusinessDay supports those decisions by bringing award-winning journalism, market data and expert analysis together on one platform, relevant to your world, shaped around your needs, and built to power growth across every level of your business</p>
             </div>
             
             <div class="hero-form-card" id="pricing-form-section">

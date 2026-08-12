@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formTitles = document.querySelectorAll('.form-section-title');
     const infoTitle = formTitles.length > 1 ? formTitles[1] : null;
 
-    const elementsToAnimate = [heroLead, heroBody, infoTitle].filter(el => el !== null);
+    const elementsToAnimate = [infoTitle].filter(el => el !== null);
     
     // Add CSS transition property for smooth fading
     elementsToAnimate.forEach(el => {
@@ -114,8 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Wait for the fade out to finish (250ms), swap text, then fade in
                 setTimeout(() => {
-                    if (heroLead) heroLead.textContent = data.lead;
-                    if (heroBody) heroBody.textContent = data.body;
                     if (infoTitle) infoTitle.textContent = data.title;
                     
                     elementsToAnimate.forEach(el => el.style.opacity = '1');
