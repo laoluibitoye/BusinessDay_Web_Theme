@@ -53,14 +53,13 @@
 .hero-container {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 0;
 }
 
 .hero-content {
     flex: 1;
     max-width: 500px;
-    padding-top: 20px;
     margin-right: 20px;
 }
 
