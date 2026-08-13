@@ -915,151 +915,13 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
         }
         }
 
-        /* Premium User Menu Dropdown — Horizontal Icon + Label */
-        .menu-action .user-menu-item {
-            position: relative;
-        }
-        .menu-action .user-menu-item > a {
-            color: #333;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            text-align: left;
-            gap: 5px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            transition: color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
-            text-decoration: none !important;
-        }
-        .menu-action .user-menu-item > a:hover {
-            color: #000;
-            background-color: rgba(0, 0, 0, 0.04);
-            transform: scale(1.03);
-        }
-        .menu-action .user-menu-item .user-menu-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: none;
-            letter-spacing: 0;
-            max-width: 110px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: inline-block;
-            line-height: 1.2;
-        }
-        .menu-action .user-menu-item .dropdown-toggle::after {
-            display: none; /* Hide default Bootstrap arrow */
-        }
-        
-        /* Click-only Dropdown Display Logic */
-        .menu-action .user-menu-item:hover .dropdown-menu:not(.show) {
-            opacity: 0 !important;
-            visibility: hidden !important;
-            transform: translateY(15px) !important;
-        }
-        .menu-action .dropdown-menu {
-            display: block !important;
-            opacity: 0;
-            visibility: hidden;
-            margin-top: 15px !important;
-            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 0, 0, 0.06);
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            padding: 8px 12px 14px !important;
-            min-width: 220px;
-            z-index: 999999 !important; /* Stack high above TradingView and other widgets */
-            pointer-events: auto !important; /* Prevent click conflicts */
-            height: auto !important;
-            position: absolute !important;
-            right: 0 !important;
-            left: auto !important;
-            top: 100% !important;
-        }
-        .menu-action .dropdown-menu.show {
-            opacity: 1 !important;
-            visibility: visible !important;
-            margin-top: 10px !important;
-        }
-        .menu-action .dropdown-menu li {
-            display: block !important;
-            float: none !important;
-            width: 100% !important;
-            height: auto !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        .menu-action .dropdown-header {
-            display: block !important;
-            height: auto !important;
-            padding: 14px 20px 26px 20px !important;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
-            margin-bottom: 8px !important;
-        }
-        .menu-action .user-welcome {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #888;
-            font-weight: 600;
-        }
-        .menu-action .user-name {
-            font-size: 15px;
-            color: #111;
-            font-weight: 700;
-            margin-top: 6px;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        .menu-action .dropdown-item {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: flex-start !important;
-            text-align: left !important;
-            gap: 12px !important;
-            padding: 10px 16px !important;
-            color: #444 !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            border-radius: 8px !important;
-            transition: background-color 0.2s ease, color 0.2s ease, padding-left 0.2s ease !important;
-            width: 100% !important;
-            height: auto !important;
-            background: none !important;
-            border: none !important;
-            float: none !important;
-        }
-        .menu-action .dropdown-item:hover {
-            background-color: rgba(0, 0, 0, 0.03) !important;
-            color: #000 !important;
-            padding-left: 20px !important;
-        }
-        .menu-action .dropdown-item svg {
-            opacity: 0.7;
-            transition: opacity 0.2s ease;
-            flex-shrink: 0;
-        }
-        .menu-action .dropdown-item:hover svg {
-            opacity: 1;
-        }
-        .menu-action .dropdown-item.text-danger {
-            color: #dc3545 !important;
-        }
-        .menu-action .dropdown-item.text-danger:hover {
-            background-color: rgba(220, 53, 69, 0.06) !important;
-        }
-        .menu-action .dropdown-divider {
-            display: block !important;
-            height: 1px !important;
-            margin: 8px 0 !important;
-            border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
-            padding: 0 !important;
-        }
+        /* The account menu previously styled here (a dropdown on desktop,
+           a stacked block in the mobile offcanvas — both reusing CSS left
+           over from a prior, now-removed competing subscription platform)
+           is gone: header.php now just calls aero_paywall_nav_button(),
+           which renders a complete, self-styled flyout panel (SDK-injected
+           CSS, not this file). Nothing left here to keep in sync with the
+           plugin's markup contract. */
     </style>
 
     <?php if ( $show_programmatic_ads ) : ?>
@@ -1359,6 +1221,23 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
                                 </svg>
                             </a>
                         </li>
+                        <?php
+                        // AeroPaywall account menu (desktop, >=769px — see
+                        // responsive.scss:61 for the theme's real nav
+                        // breakpoint; the offcanvas panel below carries the
+                        // mobile equivalent). Previously a custom "theme
+                        // adapter" reusing this file's own .dropdown-menu
+                        // CSS (built for a now-removed competing
+                        // subscription platform) — that's gone now in favor
+                        // of just calling the plugin's own render(), which
+                        // is a full right-side flyout panel, not a
+                        // dropdown. No bespoke markup left to keep in sync
+                        // with the plugin's contract; a plugin update that
+                        // improves this design just shows up here for free.
+                        ?>
+                        <li class="user-menu-item">
+                            <?php aero_paywall_nav_button(); ?>
+                        </li>
                         <li class="offcanvvas-toggler">
                             <a href="#offcanvasExample" aria-label="menu" data-bs-toggle="offcanvas" href="#offcanvasExample" role="button" aria-controls="offcanvasExample">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-list" viewBox="0 0 16 16">
@@ -1385,6 +1264,16 @@ if (interstitialSlot) interstitialSlot.addService(googletag.pubads());
                     <input type="search" name="s" value="" placeholder="Search...">
                     <i class="fa fa-search"></i>
                 </form>
+            </div>
+            <!-- AeroPaywall account menu (mobile/offcanvas — below the
+                 769px nav breakpoint the desktop .menu-action item above is
+                 hidden by responsive.scss, so this is the reachable
+                 equivalent there). A second, independent call — its own
+                 trigger icon and its own flyout panel instance, same as
+                 the desktop one above; aero_paywall_nav_button() no-ops
+                 harmlessly if the plugin isn't fully configured yet. -->
+            <div class="aero-mobile-nav">
+                <?php aero_paywall_nav_button(); ?>
             </div>
             <div class="menu">
                 <?php

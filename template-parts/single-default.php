@@ -81,6 +81,20 @@
 
                     <div class="post-content">
 
+                        <?php
+                        // A reader who can't actually read this article yet (AeroPaywall's
+                        // 120-word teaser + register/subscribe prompt) shouldn't see an
+                        // in-article ad slot or a "Related News" list glued onto the end of
+                        // that teaser — both are meant to sit inside real article content,
+                        // not inside the paywall gate itself. Without this check, both used
+                        // to land *inside* .aero-paywall-locked (between the placeholder text
+                        // and the register-prompt card the SDK mounts there), because
+                        // insert_read_also() below runs on 'the_content' *after* the plugin's
+                        // own gating filter already ran (same priority, registered later) —
+                        // it was literally splitting the already-gated HTML, not the article.
+                        $aero_paywall_gated = function_exists('aero_paywall_is_post_gated') && aero_paywall_is_post_gated($spost_id);
+                        ?>
+                        <?php if (!$aero_paywall_gated) : ?>
                         <!--To ensure accurate tracking it is essential that you replace [CACHEBUSTER] in the tag below with a random number or timestamp.-->
 
                       <!--  <iframe src="https://servedby.flashtalking.com/imp/7/249648;8674159;201;jsiframe;BusinessDayNetwork;ZohoBusinessdayNG300x250/?ft_custom=&imageType=gif&ftDestID=39713871&ft_width=300&ft_height=250&click=&ftOBA=1&ftExpTrack=&gdpr=${GDPR}&gdpr_consent=${GDPR_CONSENT_78}&cachebuster=[BDAY]" allowFullScreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" topmargin="0" leftmargin="0" allowtransparency="true" width="300" height="250">
@@ -97,6 +111,7 @@
                                 </script>
                                 </div>
                             <!--Docahse Ends-->
+                        <?php endif; ?>
                         <?php
                         function insert_read_also($content)
                         {
@@ -125,8 +140,10 @@
                             }
                             return $content;
                         }
-                        add_filter('the_content', 'insert_read_also');
-                        the_content();                            
+                        if (!$aero_paywall_gated) {
+                            add_filter('the_content', 'insert_read_also');
+                        }
+                        the_content();
                         ?>
 
                         <div class="google-badges-container" style="margin: 20px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
