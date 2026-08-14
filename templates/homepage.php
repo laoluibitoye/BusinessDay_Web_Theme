@@ -185,6 +185,7 @@
                                     ?>
                                 </div>
                             </div>
+                            <?php if (false) : ?>
                             <!-- <div class="section-heading">
                                 <a href="https://businessday.ng/tag/afcon/">
                                     <span>AFCON</span>
@@ -222,6 +223,7 @@
                                 </div>
                             </div>
                             <a class="readmore-button" href="https://businessday.ng/tag/afcon/"> Read more >> </a> -->
+                            <?php endif; ?>
                         </div>
                         <?= do_shortcode('[admanager ad_id="desktop_1" placement="desktop" lazy="false"]'); ?>
                         <?= do_shortcode('[admanager ad_id="mobile_tenancy_1" placement="mobile" lazy="false" ]'); ?>

@@ -220,11 +220,181 @@ add_filter( 'excerpt_more', '__return_empty_string' );
  * shape via RDS process list). This gives each cache key a TTL window
  * instead of hitting MySQL on every request.
  */
+/**
+ * Helper to extract term taxonomy IDs from query arguments.
+ */
+function bday_get_term_taxonomy_ids_from_args( array $args ): array {
+	$term_taxonomy_ids = array();
+
+	// 1. Handle category_name (slug)
+	if ( ! empty( $args['category_name'] ) ) {
+		$slugs = explode( ',', $args['category_name'] );
+		foreach ( $slugs as $slug ) {
+			$term = get_term_by( 'slug', trim( $slug ), 'category' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_taxonomy_ids[] = (int) $term->term_taxonomy_id;
+			}
+		}
+	}
+
+	// 2. Handle category__in (array of IDs)
+	if ( ! empty( $args['category__in'] ) ) {
+		$cat_ids = (array) $args['category__in'];
+		foreach ( $cat_ids as $cat_id ) {
+			$term = get_term( $cat_id, 'category' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_taxonomy_ids[] = (int) $term->term_taxonomy_id;
+			}
+		}
+	}
+
+	// 3. Handle category (integer ID)
+	if ( ! empty( $args['category'] ) ) {
+		$cat_id = (int) $args['category'];
+		if ( $cat_id > 0 ) {
+			$term = get_term( $cat_id, 'category' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_taxonomy_ids[] = (int) $term->term_taxonomy_id;
+			}
+		}
+	}
+
+	// 4. Handle tag__in (array of IDs)
+	if ( ! empty( $args['tag__in'] ) ) {
+		$tag_ids = (array) $args['tag__in'];
+		foreach ( $tag_ids as $tag_id ) {
+			$term = get_term( $tag_id, 'post_tag' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_taxonomy_ids[] = (int) $term->term_taxonomy_id;
+			}
+		}
+	}
+
+	// 5. Handle tag (slug)
+	if ( ! empty( $args['tag'] ) ) {
+		$slugs = explode( ',', $args['tag'] );
+		foreach ( $slugs as $slug ) {
+			$term = get_term_by( 'slug', trim( $slug ), 'post_tag' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_taxonomy_ids[] = (int) $term->term_taxonomy_id;
+			}
+		}
+	}
+
+	return array_unique( $term_taxonomy_ids );
+}
+
+/**
+ * Executes a highly optimized posts query using EXISTS instead of slow JOIN + GROUP BY.
+ */
+function bday_get_posts_optimized( array $args ): array {
+	global $wpdb;
+
+	// Extract term_taxonomy_ids if category/tag args are present
+	$term_taxonomy_ids = bday_get_term_taxonomy_ids_from_args( $args );
+
+	// If no taxonomy terms to filter by, use standard get_posts
+	if ( empty( $term_taxonomy_ids ) && empty( $args['category_name'] ) && empty( $args['category__in'] ) && empty( $args['category'] ) && empty( $args['tag__in'] ) && empty( $args['tag'] ) ) {
+		return get_posts( $args );
+	}
+
+	// If we did have taxonomy arguments specified, but resolved to no valid terms, return empty
+	if ( empty( $term_taxonomy_ids ) ) {
+		return array();
+	}
+
+	$exclude_ids = array();
+	if ( ! empty( $args['post__not_in'] ) ) {
+		$exclude_ids = array_map( 'intval', (array) $args['post__not_in'] );
+	} elseif ( ! empty( $args['exclude'] ) ) {
+		if ( is_string( $args['exclude'] ) ) {
+			$exclude_ids = array_map( 'intval', explode( ',', $args['exclude'] ) );
+		} else {
+			$exclude_ids = array_map( 'intval', (array) $args['exclude'] );
+		}
+	}
+
+	$limit = 5;
+	if ( isset( $args['numberposts'] ) ) {
+		$limit = intval( $args['numberposts'] );
+	} elseif ( isset( $args['posts_per_page'] ) ) {
+		$limit = intval( $args['posts_per_page'] );
+	}
+
+	$post_type = isset( $args['post_type'] ) ? $args['post_type'] : 'post';
+	$post_status = isset( $args['post_status'] ) ? $args['post_status'] : 'publish';
+
+	$orderby = isset( $args['orderby'] ) ? $args['orderby'] : 'date';
+	$order = isset( $args['order'] ) ? strtoupper( $args['order'] ) : 'DESC';
+	if ( ! in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
+		$order = 'DESC';
+	}
+
+	$orderby_sql = 'p.post_date';
+	if ( 'ID' === $orderby ) {
+		$orderby_sql = 'p.ID';
+	} elseif ( 'title' === $orderby ) {
+		$orderby_sql = 'p.post_title';
+	} elseif ( 'modified' === $orderby ) {
+		$orderby_sql = 'p.post_modified';
+	} elseif ( 'rand' === $orderby ) {
+		$orderby_sql = 'RAND()';
+	}
+
+	$where_clauses = array();
+	$where_clauses[] = $wpdb->prepare( "p.post_type = %s", $post_type );
+
+	if ( is_array( $post_status ) ) {
+		$statuses = array_map( array( $wpdb, 'prepare' ), array_fill( 0, count( $post_status ), '%s' ), $post_status );
+		$where_clauses[] = "p.post_status IN (" . implode( ',', $statuses ) . ")";
+	} else {
+		$where_clauses[] = $wpdb->prepare( "p.post_status = %s", $post_status );
+	}
+
+	if ( ! empty( $exclude_ids ) ) {
+		$where_clauses[] = "p.ID NOT IN (" . implode( ',', $exclude_ids ) . ")";
+	}
+
+	$term_tax_csv = implode( ',', array_map( 'intval', $term_taxonomy_ids ) );
+	$where_clauses[] = "EXISTS (
+		SELECT 1 FROM {$wpdb->term_relationships} tr 
+		WHERE tr.object_id = p.ID 
+		AND tr.term_taxonomy_id IN ($term_tax_csv)
+	)";
+
+	$where_sql = implode( ' AND ', $where_clauses );
+
+	$query = "
+		SELECT p.ID FROM {$wpdb->posts} p
+		WHERE $where_sql
+		ORDER BY $orderby_sql $order
+		LIMIT %d
+	";
+
+	$prepared_query = $wpdb->prepare( $query, $limit );
+	$post_ids = $wpdb->get_col( $prepared_query );
+
+	if ( empty( $post_ids ) ) {
+		return array();
+	}
+
+	return get_posts( array(
+		'post__in'               => $post_ids,
+		'orderby'                => 'post__in',
+		'post_type'              => $post_type,
+		'post_status'            => $post_status,
+		'suppress_filters'       => true,
+		'no_found_rows'          => true,
+		'update_post_meta_cache' => false,
+		'update_post_term_cache' => false,
+	) );
+}
+
 function bday_get_cached_posts( string $cache_key, array $args, int $ttl = 1800 ): array {
 	$posts = get_transient( $cache_key );
 
 	if ( false === $posts ) {
-		$posts = get_posts( $args );
+		$posts = bday_get_posts_optimized( $args );
 		set_transient( $cache_key, $posts, $ttl );
 	}
 
@@ -249,12 +419,16 @@ function custom_get_posts( array $args = array() ): array {
 	// Adjust WP posts query.
 	$args = wp_parse_args( $args, $defaults );
 
-	$posts = get_posts( $args );
-	if ( ! empty( $posts ) ) {
-		return $posts;
+	// Caching layer to prevent hitting the DB on every single page load
+	$cache_key = 'bday_custom_posts_' . md5( serialize( $args ) );
+	$posts = get_transient( $cache_key );
+
+	if ( false === $posts ) {
+		$posts = bday_get_posts_optimized( $args );
+		set_transient( $cache_key, $posts, 300 ); // Cache for 5 minutes (300 seconds)
 	}
 
-	return array();
+	return ! empty( $posts ) ? $posts : array();
 }
 
 
