@@ -356,17 +356,13 @@ function bday_get_posts_optimized( array $args ): array {
 	}
 
 	$term_tax_csv = implode( ',', array_map( 'intval', $term_taxonomy_ids ) );
-	$where_clauses[] = "EXISTS (
-		SELECT 1 FROM {$wpdb->term_relationships} tr 
-		WHERE tr.object_id = p.ID 
-		AND tr.term_taxonomy_id IN ($term_tax_csv)
-	)";
-
 	$where_sql = implode( ' AND ', $where_clauses );
 
 	$query = "
-		SELECT p.ID FROM {$wpdb->posts} p
-		WHERE $where_sql
+		SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+		INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+		WHERE $where_sql 
+		  AND tr.term_taxonomy_id IN ($term_tax_csv)
 		ORDER BY $orderby_sql $order
 		LIMIT %d
 	";
