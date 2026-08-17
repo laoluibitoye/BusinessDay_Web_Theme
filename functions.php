@@ -1630,8 +1630,14 @@ function bday_enqueue_corporate_subscriptions_assets() {
         wp_enqueue_style( 'corporate-subscriptions-style', get_template_directory_uri() . '/assets/css/corporate-subscriptions.css', array(), $css_ver );
         wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array('jquery', 'select2-js'), $js_ver, true );
         
+        $recaptcha_site_key = get_option('bday_corp_recaptcha_site_key', '');
+        if ( !empty($recaptcha_site_key) ) {
+            wp_enqueue_script( 'google-recaptcha', 'https://www.google.com/recaptcha/api.js?render=' . $recaptcha_site_key, array(), null, true );
+        }
+
         wp_localize_script( 'corporate-subscriptions-script', 'corpSubAjax', array(
-            'ajaxurl' => admin_url( 'admin-ajax.php' )
+            'ajaxurl' => admin_url( 'admin-ajax.php' ),
+            'recaptcha_site_key' => $recaptcha_site_key
         ));
     }
 }
@@ -1648,6 +1654,7 @@ function bday_handle_corporate_subscription() {
     $job_title = isset($_POST['jobTitle']) ? sanitize_text_field($_POST['jobTitle']) : '';
     $company = isset($_POST['company']) ? sanitize_text_field($_POST['company']) : '';
     $country = isset($_POST['country']) ? sanitize_text_field($_POST['country']) : '';
+    $team_size = isset($_POST['teamSize']) ? sanitize_text_field($_POST['teamSize']) : '';
     
     $sub_type_raw = isset($_POST['sub_type']) ? sanitize_text_field($_POST['sub_type']) : '';
     $sub_type_map = array(
@@ -1662,16 +1669,40 @@ function bday_handle_corporate_subscription() {
         wp_send_json_error('Missing required fields.');
     }
 
+    $recaptcha_secret_key = get_option('bday_corp_recaptcha_secret_key', '');
+    if (!empty($recaptcha_secret_key)) {
+        $recaptcha_token = isset($_POST['recaptcha_token']) ? $_POST['recaptcha_token'] : '';
+        if (empty($recaptcha_token)) {
+            wp_send_json_error('reCAPTCHA verification failed.');
+        }
+
+        $verify_response = wp_remote_post('https://www.google.com/recaptcha/api/siteverify', array(
+            'body' => array(
+                'secret' => $recaptcha_secret_key,
+                'response' => $recaptcha_token
+            )
+        ));
+
+        if (is_wp_error($verify_response)) {
+            wp_send_json_error('reCAPTCHA verification error.');
+        }
+
+        $verify_body = json_decode(wp_remote_retrieve_body($verify_response));
+        if (!$verify_body->success || $verify_body->score < 0.5) {
+            wp_send_json_error('reCAPTCHA verification failed.');
+        }
+    }
+
     $upload_dir = wp_upload_dir();
     $csv_file = $upload_dir['basedir'] . '/corporate_subscriptions.csv';
     $is_new_file = !file_exists($csv_file);
     $fp = fopen($csv_file, 'a');
 
     if ($is_new_file) {
-        fputcsv($fp, array('First Name', 'Last Name', 'Email', 'Phone', 'Job Title', 'Company', 'Country', 'Subscription Type', 'Wants Updates', 'Submission Date'));
+        fputcsv($fp, array('First Name', 'Last Name', 'Email', 'Phone', 'Job Title', 'Company', 'Country', 'Team Size', 'Subscription Type', 'Wants Updates', 'Submission Date'));
     }
 
-    fputcsv($fp, array($first_name, $last_name, $email, $phone, $job_title, $company, $country, $sub_type, $wants_updates, current_time('mysql')));
+    fputcsv($fp, array($first_name, $last_name, $email, $phone, $job_title, $company, $country, $team_size, $sub_type, $wants_updates, current_time('mysql')));
     fclose($fp);
 
     // Send email notification
@@ -1713,6 +1744,7 @@ function bday_handle_corporate_subscription() {
                     <tr><th>Job Title</th><td>" . esc_html($job_title) . "</td></tr>
                     <tr><th>Company</th><td>" . esc_html($company) . "</td></tr>
                     <tr><th>Country</th><td>" . esc_html($country) . "</td></tr>
+                    <tr><th>Team Size</th><td>" . esc_html($team_size) . "</td></tr>
                     <tr><th>Subscription Type</th><td>" . esc_html($sub_type) . "</td></tr>
                     <tr><th>Wants Updates</th><td>" . esc_html($wants_updates) . "</td></tr>
                 </table>
@@ -1756,10 +1788,14 @@ function bday_render_corporate_subs_page() {
 
     if (isset($_POST['bday_corp_email_save']) && isset($_POST['bday_corp_email_nonce']) && wp_verify_nonce($_POST['bday_corp_email_nonce'], 'bday_corp_email_action')) {
         update_option('bday_corporate_subs_email', sanitize_email($_POST['bday_corp_email']));
-        echo '<div class="notice notice-success is-dismissible"><p>Notification email updated.</p></div>';
+        update_option('bday_corp_recaptcha_site_key', sanitize_text_field($_POST['bday_corp_recaptcha_site_key']));
+        update_option('bday_corp_recaptcha_secret_key', sanitize_text_field($_POST['bday_corp_recaptcha_secret_key']));
+        echo '<div class="notice notice-success is-dismissible"><p>Settings updated.</p></div>';
     }
 
     $current_email = get_option('bday_corporate_subs_email', get_option('admin_email'));
+    $recaptcha_site_key = get_option('bday_corp_recaptcha_site_key', '');
+    $recaptcha_secret_key = get_option('bday_corp_recaptcha_secret_key', '');
 
     $upload_dir = wp_upload_dir();
     $csv_file = $upload_dir['basedir'] . '/corporate_subscriptions.csv';
@@ -1775,8 +1811,14 @@ function bday_render_corporate_subs_page() {
     echo '<table class="form-table" style="max-width: 600px; margin-bottom: 20px;"><tr>';
     echo '<th scope="row" style="width: 150px;"><label for="bday_corp_email">Email Address</label></th>';
     echo '<td><input name="bday_corp_email" type="email" id="bday_corp_email" value="' . esc_attr($current_email) . '" class="regular-text"></td>';
+    echo '</tr><tr>';
+    echo '<th scope="row"><label for="bday_corp_recaptcha_site_key">reCAPTCHA v3 Site Key</label></th>';
+    echo '<td><input name="bday_corp_recaptcha_site_key" type="text" id="bday_corp_recaptcha_site_key" value="' . esc_attr($recaptcha_site_key) . '" class="regular-text"></td>';
+    echo '</tr><tr>';
+    echo '<th scope="row"><label for="bday_corp_recaptcha_secret_key">reCAPTCHA v3 Secret Key</label></th>';
+    echo '<td><input name="bday_corp_recaptcha_secret_key" type="text" id="bday_corp_recaptcha_secret_key" value="' . esc_attr($recaptcha_secret_key) . '" class="regular-text"></td>';
     echo '</tr></table>';
-    echo '<p class="submit" style="margin-top: 0; padding-top: 0;"><input type="submit" name="bday_corp_email_save" class="button button-secondary" value="Save Email"></p>';
+    echo '<p class="submit" style="margin-top: 0; padding-top: 0;"><input type="submit" name="bday_corp_email_save" class="button button-secondary" value="Save Settings"></p>';
     echo '</form>';
     echo '<hr style="margin: 30px 0;">';
     
@@ -1900,3 +1942,54 @@ function bday_render_corporate_subs_page() {
     
     echo '</div>';
 }
+
+/**
+ * Add ripple and floating effect for the Sia - BusinessDay News Intelligence Concierge icon
+ */
+function bday_sia_concierge_css() {
+    ?>
+    <style>
+        /* Sia - BusinessDay News Intelligence Concierge Icon Effects */
+        /* Using likely class/ID selectors for the dynamically added icon */
+        #sia-icon, .sia-icon, .sia-concierge, #sia-concierge, .sia-chat-icon, #sia-chat-icon {
+            animation: siaFloating 3s ease-in-out infinite;
+            position: relative;
+            z-index: 9999;
+        }
+
+        #sia-icon::before, .sia-icon::before, .sia-concierge::before, #sia-concierge::before, .sia-chat-icon::before, #sia-chat-icon::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            background-color: rgba(186, 20, 26, 0.4); /* BusinessDay red color */
+            border-radius: 50%;
+            animation: siaRipple 2s infinite ease-out;
+            z-index: -1;
+        }
+
+        @keyframes siaFloating {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes siaRipple {
+            0% {
+                width: 100%;
+                height: 100%;
+                opacity: 1;
+            }
+            100% {
+                width: 160%;
+                height: 160%;
+                opacity: 0;
+            }
+        }
+    </style>
+    <?php
+}
+add_action('wp_head', 'bday_sia_concierge_css', 100);

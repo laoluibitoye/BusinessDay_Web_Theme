@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('jobTitle', document.getElementById('jobTitle')?.value || '');
             formData.append('company', document.getElementById('company')?.value || '');
             formData.append('country', document.getElementById('country')?.value || '');
+            formData.append('teamSize', document.getElementById('teamSize')?.value || '');
             
             const subType = document.querySelector('input[name="sub_type"]:checked');
             formData.append('sub_type', subType ? subType.value : '');
@@ -41,38 +42,55 @@ document.addEventListener('DOMContentLoaded', () => {
             const updates = document.getElementById('updates')?.checked ? 'Yes' : 'No';
             formData.append('updates', updates);
 
-            fetch(corpSubAjax.ajaxurl, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (messageDiv) {
-                    messageDiv.style.display = 'block';
-                    if (data.success) {
-                        messageDiv.style.color = 'green';
-                        messageDiv.textContent = data.data;
-                        form.reset();
-                    } else {
-                        messageDiv.style.color = 'red';
-                        messageDiv.textContent = data.data || 'An error occurred. Please try again.';
+            const submitForm = () => {
+                fetch(corpSubAjax.ajaxurl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (messageDiv) {
+                        messageDiv.style.display = 'block';
+                        if (data.success) {
+                            messageDiv.style.color = 'green';
+                            messageDiv.textContent = data.data;
+                            form.reset();
+                        } else {
+                            messageDiv.style.color = 'red';
+                            messageDiv.textContent = data.data || 'An error occurred. Please try again.';
+                        }
                     }
-                }
-            })
-            .catch(error => {
-                if (messageDiv) {
-                    messageDiv.style.display = 'block';
-                    messageDiv.style.color = 'red';
-                    messageDiv.textContent = 'An error occurred. Please try again.';
-                }
-                console.error('Error:', error);
-            })
-            .finally(() => {
-                if (submitBtn) {
-                    submitBtn.textContent = submitBtn.dataset.originalText;
-                    submitBtn.disabled = false;
-                }
-            });
+                })
+                .catch(error => {
+                    if (messageDiv) {
+                        messageDiv.style.display = 'block';
+                        messageDiv.style.color = 'red';
+                        messageDiv.textContent = 'An error occurred. Please try again.';
+                    }
+                    console.error('Error:', error);
+                })
+                .finally(() => {
+                    if (submitBtn) {
+                        submitBtn.textContent = submitBtn.dataset.originalText;
+                        submitBtn.disabled = false;
+                    }
+                });
+            };
+
+            if (typeof grecaptcha !== 'undefined' && corpSubAjax.recaptcha_site_key) {
+                grecaptcha.ready(function() {
+                    grecaptcha.execute(corpSubAjax.recaptcha_site_key, {action: 'submit_corporate_subscription'}).then(function(token) {
+                        formData.append('recaptcha_token', token);
+                        submitForm();
+                    }).catch(function(error) {
+                        console.error('reCAPTCHA error:', error);
+                        // Fallback to submit, backend will reject if key is strictly required
+                        submitForm();
+                    });
+                });
+            } else {
+                submitForm();
+            }
         });
     }
 

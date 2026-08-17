@@ -84,14 +84,26 @@ get_header(); ?>
                             <label for="country">Country*</label>
                             <div class="select-arrow">&#9662;</div>
                         </div>
+                        <div class="input-group select-group">
+                            <select id="teamSize" required>
+                                <option value="" disabled selected></option>
+                                <option value="10-50">10 - 50</option>
+                                <option value="51-200">51 - 200</option>
+                                <option value="201-500">201 - 500</option>
+                                <option value="501-1000">501 - 1000</option>
+                                <option value="1000+">1000+</option>
+                            </select>
+                            <label for="teamSize">Team Size*</label>
+                            <div class="select-arrow">&#9662;</div>
+                        </div>
                     </div>
 
                     <div class="checkbox-group">
                         <input type="checkbox" id="updates">
-                        <label for="updates">I would like to receive updates and information about Corporate Subscriptions, recommended content and special offers from Dow Jones and affiliates. I can unsubscribe at any time.</label>
+                        <label for="updates">I would like to receive updates and information about Corporate Subscriptions, recommended content and special offers from Businessday. I can unsubscribe at any time.</label>
                     </div>
 
-                    <p class="terms-text">By clicking the button below, you agree to the Dow Jones <a href="#">Privacy Notice</a> and <a href="#">Cookie Notice</a>.</p>
+                    <p class="terms-text">By clicking the button below, you agree to the Businessday <a href="#">Privacy Notice</a> and <a href="#">Cookie Notice</a>.</p>
 
                     <button type="submit" class="btn btn-primary btn-block">Get Pricing</button>
                     <div id="form-message" style="margin-top: 15px; font-weight: bold; text-align: center; display: none;"></div>
