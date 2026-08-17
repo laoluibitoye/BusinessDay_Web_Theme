@@ -321,6 +321,8 @@ function bday_get_posts_optimized( array $args ): array {
 		$limit = intval( $args['posts_per_page'] );
 	}
 
+	$offset = isset( $args['offset'] ) ? intval( $args['offset'] ) : 0;
+
 	$post_type = isset( $args['post_type'] ) ? $args['post_type'] : 'post';
 	$post_status = isset( $args['post_status'] ) ? $args['post_status'] : 'publish';
 
@@ -358,16 +360,28 @@ function bday_get_posts_optimized( array $args ): array {
 	$term_tax_csv = implode( ',', array_map( 'intval', $term_taxonomy_ids ) );
 	$where_sql = implode( ' AND ', $where_clauses );
 
-	$query = "
-		SELECT DISTINCT p.ID FROM {$wpdb->posts} p
-		INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
-		WHERE $where_sql 
-		  AND tr.term_taxonomy_id IN ($term_tax_csv)
-		ORDER BY $orderby_sql $order
-		LIMIT %d
-	";
+	if ( $offset > 0 ) {
+		$query = "
+			SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+			INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+			WHERE $where_sql 
+			  AND tr.term_taxonomy_id IN ($term_tax_csv)
+			ORDER BY $orderby_sql $order
+			LIMIT %d OFFSET %d
+		";
+		$prepared_query = $wpdb->prepare( $query, $limit, $offset );
+	} else {
+		$query = "
+			SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+			INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+			WHERE $where_sql 
+			  AND tr.term_taxonomy_id IN ($term_tax_csv)
+			ORDER BY $orderby_sql $order
+			LIMIT %d
+		";
+		$prepared_query = $wpdb->prepare( $query, $limit );
+	}
 
-	$prepared_query = $wpdb->prepare( $query, $limit );
 	$post_ids = $wpdb->get_col( $prepared_query );
 
 	if ( empty( $post_ids ) ) {
