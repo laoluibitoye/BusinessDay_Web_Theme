@@ -77,17 +77,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
 
-            if (typeof grecaptcha !== 'undefined' && corpSubAjax.recaptcha_site_key) {
-                grecaptcha.ready(function() {
-                    grecaptcha.execute(corpSubAjax.recaptcha_site_key, {action: 'submit_corporate_subscription'}).then(function(token) {
-                        formData.append('recaptcha_token', token);
-                        submitForm();
-                    }).catch(function(error) {
-                        console.error('reCAPTCHA error:', error);
-                        // Fallback to submit, backend will reject if key is strictly required
-                        submitForm();
-                    });
-                });
+            if (typeof grecaptcha !== 'undefined' && document.querySelector('.g-recaptcha')) {
+                const token = grecaptcha.getResponse();
+                if (!token) {
+                    if (messageDiv) {
+                        messageDiv.style.display = 'block';
+                        messageDiv.style.color = 'red';
+                        messageDiv.textContent = 'Please verify that you are not a robot.';
+                    }
+                    if (submitBtn) {
+                        submitBtn.textContent = submitBtn.dataset.originalText;
+                        submitBtn.disabled = false;
+                    }
+                    return;
+                }
+                formData.append('recaptcha_token', token);
+                submitForm();
             } else {
                 submitForm();
             }

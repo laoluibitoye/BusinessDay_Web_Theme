@@ -1632,7 +1632,7 @@ function bday_enqueue_corporate_subscriptions_assets() {
         
         $recaptcha_site_key = get_option('bday_corp_recaptcha_site_key', '');
         if ( !empty($recaptcha_site_key) ) {
-            wp_enqueue_script( 'google-recaptcha', 'https://www.google.com/recaptcha/api.js?render=' . $recaptcha_site_key, array(), null, true );
+            wp_enqueue_script( 'google-recaptcha', 'https://www.google.com/recaptcha/api.js', array(), null, true );
         }
 
         wp_localize_script( 'corporate-subscriptions-script', 'corpSubAjax', array(
@@ -1688,7 +1688,7 @@ function bday_handle_corporate_subscription() {
         }
 
         $verify_body = json_decode(wp_remote_retrieve_body($verify_response));
-        if (!$verify_body->success || $verify_body->score < 0.5) {
+        if (!$verify_body->success) {
             wp_send_json_error('reCAPTCHA verification failed.');
         }
     }

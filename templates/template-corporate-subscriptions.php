@@ -103,6 +103,10 @@ get_header(); ?>
                         <label for="updates">I would like to receive updates and information about Corporate Subscriptions, recommended content and special offers from Businessday. I can unsubscribe at any time.</label>
                     </div>
 
+                    <div style="margin-bottom: 20px;">
+                        <div class="g-recaptcha" data-sitekey="<?php echo esc_attr(get_option('bday_corp_recaptcha_site_key', '')); ?>"></div>
+                    </div>
+
                     <p class="terms-text">By clicking the button below, you agree to the Businessday <a href="#">Privacy Notice</a> and <a href="#">Cookie Notice</a>.</p>
 
                     <button type="submit" class="btn btn-primary btn-block">Get Pricing</button>
