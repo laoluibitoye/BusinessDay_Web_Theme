@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const updates = document.getElementById('updates')?.checked ? 'Yes' : 'No';
             formData.append('updates', updates);
+            
+            formData.append('math_answer', document.getElementById('math_answer')?.value || '');
+            formData.append('math_nonce', document.getElementById('math_nonce')?.value || '');
 
             const submitForm = () => {
                 fetch(corpSubAjax.ajaxurl, {

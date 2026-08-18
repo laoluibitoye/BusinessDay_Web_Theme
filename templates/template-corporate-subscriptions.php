@@ -98,6 +98,20 @@ get_header(); ?>
                         </div>
                     </div>
 
+                    <?php
+                    $num1 = rand(1, 15);
+                    $num2 = rand(1, 15);
+                    $math_sum = $num1 + $num2;
+                    $math_nonce = wp_create_nonce( 'math_captcha_' . $math_sum );
+                    ?>
+                    <div class="form-row">
+                        <div class="input-group" style="width: 50%;">
+                            <input type="number" id="math_answer" required>
+                            <label for="math_answer">Spam Check: <?php echo $num1; ?> + <?php echo $num2; ?> = ? *</label>
+                            <input type="hidden" id="math_nonce" value="<?php echo esc_attr($math_nonce); ?>">
+                        </div>
+                    </div>
+
                     <div class="checkbox-group">
                         <input type="checkbox" id="updates">
                         <label for="updates">I would like to receive updates and information about Corporate Subscriptions, recommended content and special offers from Businessday. I can unsubscribe at any time.</label>

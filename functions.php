@@ -1629,7 +1629,6 @@ function bday_enqueue_corporate_subscriptions_assets() {
 
         wp_enqueue_style( 'corporate-subscriptions-style', get_template_directory_uri() . '/assets/css/corporate-subscriptions.css', array(), $css_ver );
         wp_enqueue_script( 'corporate-subscriptions-script', get_template_directory_uri() . '/assets/js/corporate-subscriptions.js', array('jquery', 'select2-js'), $js_ver, true );
-        
         $recaptcha_site_key = get_option('bday_corp_recaptcha_site_key', '');
         if ( !empty($recaptcha_site_key) ) {
             wp_enqueue_script( 'google-recaptcha', 'https://www.google.com/recaptcha/api.js?render=' . $recaptcha_site_key, array(), null, true );
@@ -1667,6 +1666,13 @@ function bday_handle_corporate_subscription() {
 
     if (empty($first_name) || empty($last_name) || empty($email)) {
         wp_send_json_error('Missing required fields.');
+    }
+
+    $math_answer = isset($_POST['math_answer']) ? intval($_POST['math_answer']) : '';
+    $math_nonce = isset($_POST['math_nonce']) ? $_POST['math_nonce'] : '';
+
+    if (empty($math_answer) || empty($math_nonce) || !wp_verify_nonce($math_nonce, 'math_captcha_' . $math_answer)) {
+        wp_send_json_error('Incorrect math answer. Please try again.');
     }
 
     $recaptcha_secret_key = get_option('bday_corp_recaptcha_secret_key', '');
