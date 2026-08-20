@@ -9,17 +9,17 @@
                     <img src="https://businessday.ng/wp-content/themes/bday/assets/build/images/businessday.png" class="w-100" alt="">
                     <div style="font-family: lato; font-size:medium; line-height: 1.3" class="mt-3">
                     Business Day, established in 2001, is a daily business newspaper based in Lagos. It is the only Nigerian newspaper with a bureau in Accra, Ghana. It has both daily and Sunday titles. It circulates in Nigeria and Ghana... <a class="text-decoration-none text-white" href="https://about.businessday.ng/index.php">Read More...</a>
-                    Phone:+234-803-322-5506 |+234-802-601-1296 |+234-813-346-4051
+                    Phone:+234-803-304-2209 |+234-802-601-1296 |+234-813-824-3822
                     </div>
                 </div>
 
                 <div class="col-md-9">
                     <div class="row mt-4">
-                        <div class="col-md-1">
+                        <div class="col-md-1 d-none d-md-block">
                         
                         </div>
         
-                        <div class="col-md-3 d-none d-md-block">
+                        <div class="col-6 col-md-3">
                             <h5 style="font-weight: 700;">The Company</h5>
                             <ul class="list-unstyled" style="font-size: 0.9rem; line-height: 30px;">
                                 <li><a href="https://about.businessday.ng/index.php" class="text-decoration-none text-white">About Us</a></li>
@@ -30,7 +30,7 @@
                             </ul>
                         </div>
         
-                        <div class="col-md-3 d-none d-md-block">
+                        <div class="col-6 col-md-3">
                             <h5 style="font-weight: 700;">Legal & Privacy</h5>
                             <ul class="list-unstyled" style="font-size: 0.9rem; line-height: 30px;">
                                 <li><a href="" class="text-decoration-none text-white">Terms & Conditions</a></li>
@@ -39,7 +39,7 @@
                             </ul>
                         </div>
         
-                        <div class="col-md-3 d-none d-md-block">
+                        <div class="col-6 col-md-3">
                             <h5 style="font-weight: 700;">Quick Links</h5>
                             <ul class="list-unstyled" style="font-size: 0.9rem; line-height: 30px;">
                                 <li><a href="https://businessday.ng/advert-and-rates/" class="text-decoration-none text-white">Adverts & Rates</a></li>
@@ -50,15 +50,14 @@
                             </ul>
                         </div>
         
-                        <div class="col-md-2 d-none d-md-block">
+                        <div class="col-6 col-md-2">
                             <h5 style="font-weight: 700;">Support</h5>
                             <ul class="list-unstyled" style="font-size: 0.9rem; line-height: 30px;">
                                 <li><a href="https://businessday.ng/advert-and-rates/" class="text-decoration-none text-white">digitalsales@businessday.ng</a></li>
-                                <li><a href="#" class="text-decoration-none text-white">+2348033225506</a></li>
+                                <li><a href="#" class="text-decoration-none text-white">+2348033042209</a></li>
                                 <li><a href="#" class="text-decoration-none text-white">+2348026011296</a></li>
-                                <li><a href="#" class="text-decoration-none text-white">+2348133464051</a></li>
+                                <li><a href="#" class="text-decoration-none text-white">+2348138243822</a></li>
                                 
-                            </ul>
                             </ul>
                         </div>
                     </div>
