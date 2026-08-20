@@ -435,7 +435,7 @@ function custom_get_posts( array $args = array() ): array {
 
 	if ( false === $posts ) {
 		$posts = bday_get_posts_optimized( $args );
-		set_transient( $cache_key, $posts, 300 ); // Cache for 5 minutes (300 seconds)
+		set_transient( $cache_key, $posts, 60 ); // Cache for 1 minute (60 seconds)
 	}
 
 	return ! empty( $posts ) ? $posts : array();
@@ -900,10 +900,7 @@ class FluentCRM_Remote_Manager {
             foreach ($categories as $cat) {
                 $cat_id = intval($cat->term_id);
                 if (!empty($saved_mappings[$cat_id])) {
-                    $mapped_list_id = intval($saved_mappings[$cat_id]);
-                    if (in_array($mapped_list_id, $visible_lists)) {
-                        $target_list_ids[] = $mapped_list_id;
-                    }
+                    $target_list_ids[] = intval($saved_mappings[$cat_id]);
                 }
             }
         }
@@ -918,12 +915,13 @@ class FluentCRM_Remote_Manager {
         }
 
         $payload = [
-            'post_id' => $post_id,
-            'title'   => get_the_title($post_id),
-            'url'     => get_the_permalink($post_id),
-            'excerpt' => esc_html($excerpt),
-            'lists'   => $target_list_ids,
-            'type'    => 'instant'
+            'post_id'     => $post_id,
+            'title'       => get_the_title($post_id),
+            'url'         => get_the_permalink($post_id),
+            'excerpt'     => esc_html($excerpt),
+            'lists'       => $target_list_ids,
+            'type'        => 'instant',
+            'sender_name' => 'BusinessDay Alert'
         ];
 
         $response = $this->remote_api_request('send-alert', 'POST', $payload);
@@ -970,7 +968,8 @@ class FluentCRM_Remote_Manager {
             'test_emails' => array_values($emails),
             'title'       => get_the_title($post_id),
             'url'         => get_the_permalink($post_id),
-            'excerpt'     => esc_html($excerpt)
+            'excerpt'     => esc_html($excerpt),
+            'sender_name' => 'BusinessDay Alert'
         ];
 
         $response = $this->remote_api_request('send-alert', 'POST', $payload);
@@ -1037,7 +1036,7 @@ class FluentCRM_Remote_Manager {
                 $response = $this->remote_api_request('lists', 'GET');
                 if (!is_wp_error($response) && isset($response['lists']['data'])) {
                     $lists = $response['lists']['data'];
-                    set_transient($this->lists_cache_key, $lists, DAY_IN_SECONDS);
+                    set_transient($this->lists_cache_key, $lists, 5 * MINUTE_IN_SECONDS);
                     update_option('fc_remote_stored_lists', $lists);
                 } else {
                     $lists = [];
@@ -1106,12 +1105,11 @@ class FluentCRM_Remote_Manager {
 
         $all_lists = $this->get_cached_lists();
         $api_error_message = '';
-
         if (empty($all_lists)) {
             $response = $this->remote_api_request('lists', 'GET');
             if (!is_wp_error($response) && isset($response['lists']['data'])) {
                 $all_lists = $response['lists']['data'];
-                set_transient($this->lists_cache_key, $all_lists, DAY_IN_SECONDS);
+                set_transient($this->lists_cache_key, $all_lists, 5 * MINUTE_IN_SECONDS);
                 update_option('fc_remote_stored_lists', $all_lists);
             } else {
                 $all_lists = [];
@@ -1377,10 +1375,11 @@ class FluentCRM_Remote_Manager {
 
         if ($mode === 'live') {
             $payload = [
-                'type'    => 'instant',
-                'title'   => 'BusinessDay Alert — Live Test Broadcast',
-                'url'     => home_url('/'),
-                'excerpt' => 'This is a live test broadcast sent from the BusinessDay Alert admin panel to verify delivery to all opted-in subscribers.'
+                'type'        => 'instant',
+                'title'       => 'BusinessDay Alert — Live Test Broadcast',
+                'url'         => home_url('/'),
+                'excerpt'     => 'This is a live test broadcast sent from the BusinessDay Alert admin panel to verify delivery to all opted-in subscribers.',
+                'sender_name' => 'BusinessDay Alert'
             ];
 
             $response = $this->remote_api_request('send-alert', 'POST', $payload);
@@ -1404,7 +1403,8 @@ class FluentCRM_Remote_Manager {
                 'test_emails' => array_values($emails),
                 'title'       => 'BusinessDay Alert — Test Email',
                 'url'         => home_url('/'),
-                'excerpt'     => 'This is a test alert sent from the BusinessDay Alert system to verify delivery is working correctly.'
+                'excerpt'     => 'This is a test alert sent from the BusinessDay Alert system to verify delivery is working correctly.',
+                'sender_name' => 'BusinessDay Alert'
             ];
 
             $response = $this->remote_api_request('send-alert', 'POST', $payload);
@@ -1659,10 +1659,7 @@ class FluentCRM_Remote_Manager {
             foreach ($categories as $cat) {
                 $cat_id = intval($cat->term_id);
                 if (!empty($saved_mappings[$cat_id])) {
-                    $mapped_list_id = intval($saved_mappings[$cat_id]);
-                    if (in_array($mapped_list_id, $visible_lists)) {
-                        $target_list_ids[] = $mapped_list_id;
-                    }
+                    $target_list_ids[] = intval($saved_mappings[$cat_id]);
                 }
             }
         }
@@ -1677,12 +1674,13 @@ class FluentCRM_Remote_Manager {
         }
 
         $payload = [
-            'post_id' => $post_id,
-            'title'   => get_the_title($post_id),
-            'url'     => get_the_permalink($post_id),
-            'excerpt' => esc_html($excerpt),
-            'lists'   => $target_list_ids,
-            'type'    => 'instant'
+            'post_id'     => $post_id,
+            'title'       => get_the_title($post_id),
+            'url'         => get_the_permalink($post_id),
+            'excerpt'     => esc_html($excerpt),
+            'lists'       => $target_list_ids,
+            'type'        => 'instant',
+            'sender_name' => 'BusinessDay Alert'
         ];
 
         $response = $this->remote_api_request('send-alert', 'POST', $payload);
@@ -1737,8 +1735,9 @@ class FluentCRM_Remote_Manager {
         }
 
         $payload = [
-            'type'  => 'digest',
-            'posts' => $posts_data
+            'type'        => 'digest',
+            'posts'       => $posts_data,
+            'sender_name' => 'BusinessDay Alert'
         ];
 
         $this->remote_api_request('send-alert', 'POST', $payload);
@@ -2627,3 +2626,8 @@ function bday_render_corporate_subs_page() {
     
     echo '</div>';
 }
+
+// Change WordPress default email sender name to BusinessDay Alert
+add_filter( 'wp_mail_from_name', function ( $original_email_from ) {
+	return 'BusinessDay Alert';
+} );
